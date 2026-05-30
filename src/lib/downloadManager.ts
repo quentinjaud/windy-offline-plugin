@@ -1,0 +1,108 @@
+// DownloadManager — construit les URLs citytile pour une zone/modèle/plage
+// et télécharge avec progression.
+
+import { bboxToTiles, getZoomLevels, estimateTileCount, type BBox, type TileCoord } from './tileMath';
+import { normalizeUrl } from './urlUtils';
+import { putCacheEntry } from './storage';
+
+const CITYTILE_BASE = 'https://node.windy.com/citytile/v1.0';
+
+export interface DownloadOptions {
+    model: string;       // arome, gfs, ecmwf...
+    bbox: BBox;
+    refTime: string;     // ISO 8601, ex: '2026-05-30T15:00:00Z'
+    hours?: number;      // nombre d'heures de forecast (défaut: 68)
+    step?: number;       // pas en heures (défaut: 1)
+    zoomLevels?: number[];
+    packId: string;      // ID du pack à créer
+    onProgress?: (downloaded: number, total: number) => void;
+}
+
+export interface DownloadResult {
+    tileCount: number;
+    totalSize: number;
+    errors: string[];
+}
+
+/**
+ * Télécharge toutes les tiles citytile pour les paramètres donnés.
+ * Respecte un rate limit de 3 req/s.
+ */
+export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResult> {
+    const hours = opts.hours ?? 68;
+    const step = opts.step ?? 1;
+    const zoomLevels = opts.zoomLevels ?? getZoomLevels(opts.bbox);
+
+    // Générer toutes les tiles
+    const allTiles: { tile: TileCoord; url: string }[] = [];
+    for (const z of zoomLevels) {
+        const tiles = bboxToTiles(opts.bbox, z);
+        for (const tile of tiles) {
+            const rawUrl = buildCitytileUrl(opts.model, tile, opts.refTime, hours, step);
+            allTiles.push({ tile, url: rawUrl });
+        }
+    }
+
+    const total = allTiles.length;
+    let downloaded = 0;
+    let totalSize = 0;
+    const errors: string[] = [];
+
+    opts.onProgress?.(0, total);
+
+    for (let i = 0; i < allTiles.length; i++) {
+        const { url } = allTiles[i];
+
+        try {
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                errors.push(`${url}: HTTP ${response.status}`);
+                continue;
+            }
+
+            const json = await response.json();
+            const body = JSON.stringify(json);
+            const size = body.length;
+
+            const cacheKey = normalizeUrl(url);
+            await putCacheEntry({
+                url: cacheKey,
+                json,
+                size,
+                createdAt: Date.now(),
+                packId: opts.packId,
+            });
+
+            totalSize += size;
+            downloaded++;
+        } catch (e) {
+            errors.push(`${url}: ${e}`);
+        }
+
+        opts.onProgress?.(i + 1, total);
+
+        // Rate limiting : max 3 req/s (~333ms par requête)
+        // Sauf pour la dernière
+        if (i < allTiles.length - 1) {
+            await sleep(350);
+        }
+    }
+
+    return { tileCount: downloaded, totalSize, errors };
+}
+
+function buildCitytileUrl(model: string, tile: TileCoord, refTime: string, hours: number, step: number): string {
+    const params = new URLSearchParams({
+        refTime,
+        hours: String(hours),
+        step: String(step),
+    });
+    return `${CITYTILE_BASE}/${model}/${tile.z}/${tile.x}/${tile.y}?${params.toString()}`;
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export { estimateTileCount, getZoomLevels };
