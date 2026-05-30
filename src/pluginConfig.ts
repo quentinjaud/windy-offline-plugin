@@ -1,17 +1,17 @@
 import type { ExternalPluginConfig } from '@windy/interfaces';
 
 const config: ExternalPluginConfig = {
-    name: 'windy-plugin-my-plugin',
+    name: 'windy-plugin-offline',
     version: '0.1.0',
-    icon: '🔌',
-    title: 'This is my first plugin',
-    description: 'This is my first plugin.',
-    author: 'John Doe (optional company name)',
-    repository: 'https://github.com/windycom/windy-plugin-template',
+    icon: '📡',
+    title: 'Windy Offline',
+    description: 'Télécharge les données météo pour consultation hors-ligne.',
+    author: 'Quentin Jaud',
+    repository: 'https://github.com/quentinjaud/windy-offline-plugin',
     desktopUI: 'rhpane',
-    mobileUI: 'fullscreen',
-    routerPath: '/my-plugin',
-    private: true,
+    mobileUI: 'small',
+    routerPath: '/offline',
+    addToContextmenu: true,
 };
 
 export default config;
