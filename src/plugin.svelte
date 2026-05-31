@@ -59,33 +59,10 @@
     import { getZoomLevels } from './lib/tileMath';
     import { formatDate } from './lib/format';
     import { downloadTiles } from './lib/downloadManager';
+    import { map } from '@windy/map';
 
-    // Chargement lazy — @windy/map n'est pas dispo sur mobile
-    // Leaflet est global dans Windy (via <script>)
     declare const L: any;
-    let map: any = null;
-
-    /** Récupère l'instance Leaflet — essaie @windy/map puis DOM */
-    function getWindyMap(): any {
-        // Si déjà chargé via @windy/map (desktop)
-        if (map) return map;
-        // Fallback mobile : l'instance Leaflet est dans le DOM
-        const container = document.querySelector('.leaflet-container');
-        if (container) {
-            return (container as any)._leaflet_map || null;
-        }
-        return null;
-    }
-
-    async function ensureMap(): Promise<void> {
-        if (map) return;
-        try {
-            const windyMap = await import('@windy/map');
-            map = windyMap.map;
-        } catch {
-            map = getWindyMap();
-        }
-    }
+    let mapAvailable = true;
 
     const { title } = config;
 
@@ -109,7 +86,6 @@
     let packs: Pack[] = [];
     let activePackId: string | null = null;
     let cacheSize = 0;
-    let mapAvailable = false; // true si @windy/map ou L global est dispo
 
     // Rectangle drawing layer
     let rectLayer: L.Rectangle | null = null;
@@ -141,10 +117,6 @@
     }
 
     function startDrawing(): void {
-        if (!map) {
-            errorMsg = 'Fonction indisponible sur cette plateforme.';
-            return;
-        }
         drawing = true;
         rectBounds = null;
         errorMsg = '';
@@ -189,25 +161,18 @@
     function cancelDrawing(): void {
         pointA = null;
         drawing = false;
-        if (map) {
-            map.getContainer().style.cursor = '';
-            if (clickHandler) {
-                map.off('click', clickHandler);
-                clickHandler = null;
-            }
-            if (rectLayer) {
-                map.removeLayer(rectLayer);
-                rectLayer = null;
-            }
+        map.getContainer().style.cursor = '';
+        if (clickHandler) {
+            map.off('click', clickHandler);
+            clickHandler = null;
+        }
+        if (rectLayer) {
+            map.removeLayer(rectLayer);
+            rectLayer = null;
         }
     }
 
     async function useScreenZone(): Promise<void> {
-        await ensureMap();
-        if (!map) {
-            errorMsg = 'Impossible d\'accéder à la carte.';
-            return;
-        }
         const bounds = map.getBounds();
         rectBounds = {
             n: bounds.getNorth(),
@@ -360,13 +325,11 @@
     onMount(async () => {
         install();
         loadPacks();
-        await ensureMap();
-        mapAvailable = !!map;
     });
 
     onDestroy(() => {
         uninstall();
-        if (map && rectLayer) map.removeLayer(rectLayer);
+        if (rectLayer) map.removeLayer(rectLayer);
     });
 </script>
 
