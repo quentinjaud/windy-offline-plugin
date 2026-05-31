@@ -5,7 +5,7 @@
     "main": "dist/plugin.min.js",
     "type": "module",
     "scripts": {
-        "build": "rm -rf dist && mkdir dist && SERVE=false rollup -c && cp package.json dist/",
+        "build": "rm -rf dist && mkdir dist && SERVE=false rollup -c && cp package.json plugin.json dist/",
         "build:win": "rmdir /s /q dist && mkdir dist && set SERVE=false && rollup -c && copy package.json dist\\",
         "start": "rollup -w -c",
         "test": "vitest run",
