@@ -4,6 +4,7 @@
 import { bboxToTiles, getZoomLevels, estimateTileCount, type BBox, type TileCoord } from './tileMath';
 import { normalizeUrl } from './urlUtils';
 import { putCacheEntry, getCacheEntry } from './storage';
+import { getCapturedToken } from './cacheProxy';
 
 const CITYTILE_BASE = 'https://node.windy.com/citytile/v1.0';
 
@@ -34,12 +35,13 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
     const step = opts.step ?? 1;
     const zoomLevels = opts.zoomLevels ?? getZoomLevels(opts.bbox);
 
-    // Générer toutes les tiles
+    // Générer toutes les tiles avec le token d'auth
+    const token = getCapturedToken();
     const allTiles: { tile: TileCoord; url: string }[] = [];
     for (const z of zoomLevels) {
         const tiles = bboxToTiles(opts.bbox, z);
         for (const tile of tiles) {
-            const rawUrl = buildCitytileUrl(opts.model, tile, opts.refTime, hours, step);
+            const rawUrl = buildCitytileUrl(opts.model, tile, opts.refTime, hours, step, token);
             allTiles.push({ tile, url: rawUrl });
         }
     }
@@ -52,7 +54,7 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
     opts.onProgress?.(0, total);
 
     for (let i = 0; i < allTiles.length; i++) {
-        const { tile, url } = allTiles[i];
+        const { url } = allTiles[i];
 
         // Vérifier l'annulation
         if (opts.signal?.aborted) {
@@ -109,12 +111,15 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
     return { tileCount: downloaded, totalSize, errors };
 }
 
-function buildCitytileUrl(model: string, tile: TileCoord, refTime: string, hours: number, step: number): string {
+function buildCitytileUrl(model: string, tile: TileCoord, refTime: string, hours: number, step: number, token?: string | null): string {
+    // Nettoyer refTime : retirer millisecondes et suffixe 'Z'
+    const cleanRefTime = refTime.replace(/\.\d{3}Z?$/, '').replace(/Z$/, '');
     const params = new URLSearchParams({
-        refTime,
+        refTime: cleanRefTime,
         hours: String(hours),
         step: String(step),
     });
+    if (token) params.set('token2', token);
     return `${CITYTILE_BASE}/${model}/${tile.z}/${tile.x}/${tile.y}?${params.toString()}`;
 }
 

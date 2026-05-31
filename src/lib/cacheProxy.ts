@@ -13,6 +13,11 @@ type FetchFn = typeof window.fetch;
 
 let originalFetch: FetchFn | null = null;
 let installCount = 0;
+let capturedToken: string | null = null;
+
+export function getCapturedToken(): string | null {
+    return capturedToken;
+}
 
 export function install(): void {
     installCount++;
@@ -30,6 +35,10 @@ export function install(): void {
         if (!url.includes('citytile')) {
             return originalFetch!(input, init);
         }
+
+        // Capturer le token d'auth pour les téléchargements manuels
+        const token = new URL(url).searchParams.get('token2');
+        if (token) capturedToken = token;
 
         const cacheKey = normalizeUrl(url);
         const activePackId = getActivePackId();
