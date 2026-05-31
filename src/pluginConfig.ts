@@ -2,7 +2,7 @@ import type { ExternalPluginConfig } from '@windy/interfaces';
 
 const config: ExternalPluginConfig = {
     name: 'windy-plugin-offline',
-    version: '0.1.1',
+    version: '0.1.2',
     icon: '📡',
     title: 'Windy Offline',
     description: 'Télécharge les données météo pour consultation hors-ligne.',
