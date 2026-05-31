@@ -14,9 +14,15 @@ type FetchFn = typeof window.fetch;
 let originalFetch: FetchFn | null = null;
 let installCount = 0;
 let capturedToken: string | null = null;
+let capturedParams: Record<string, string> | null = null;
 
 export function getCapturedToken(): string | null {
     return capturedToken;
+}
+
+/** Retourne les paramètres de query capturés sur la dernière requête citytile Windy */
+export function getCapturedParams(): Record<string, string> | null {
+    return capturedParams;
 }
 
 export function install(): void {
@@ -36,9 +42,22 @@ export function install(): void {
             return originalFetch!(input, init);
         }
 
-        // Capturer le token d'auth pour les téléchargements manuels
-        const token = new URL(url).searchParams.get('token2');
-        if (token) capturedToken = token;
+        // Capturer le token d'auth et les params de query pour les téléchargements manuels
+        const parsedUrl = new URL(url);
+        const token = parsedUrl.searchParams.get('token2');
+        if (token) {
+            capturedToken = token;
+            // Capturer tous les params récurrents de Windy (uid, pr, sc, poc, v, labelsVersion)
+            const keys = ['uid', 'pr', 'sc', 'poc', 'v', 'labelsVersion'];
+            const params: Record<string, string> = {};
+            for (const key of keys) {
+                const val = parsedUrl.searchParams.get(key);
+                if (val) params[key] = val;
+            }
+            if (Object.keys(params).length > 0) {
+                capturedParams = params;
+            }
+        }
 
         const cacheKey = normalizeUrl(url);
         const activePackId = getActivePackId();

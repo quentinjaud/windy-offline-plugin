@@ -4,7 +4,33 @@
 import { bboxToTiles, getZoomLevels, estimateTileCount, type BBox, type TileCoord } from './tileMath';
 import { normalizeUrl } from './urlUtils';
 import { putCacheEntry, getCacheEntry } from './storage';
-import { getCapturedToken } from './cacheProxy';
+import { getCapturedToken, getCapturedParams } from './cacheProxy';
+
+/**
+ * Résolution max (zoom) par modèle météo.
+ * Au-delà, l'API citytile renvoie 400.
+ */
+const MODEL_MAX_ZOOM: Record<string, number> = {
+    gfs: 8,
+    gfsWaves: 8,
+    ecmwf: 7,
+    ecmwfWaves: 7,
+    icon: 8,
+    iconEu: 9,
+    iconD2: 10,
+    arome: 9,
+    aromeFrance: 9,
+    namConus: 9,
+    namHawaii: 9,
+    namAlaska: 9,
+    nems: 8,
+    hrrrConus: 10,
+    hrrrAlaska: 10,
+    ukv: 10,
+    jmaMsm: 9,
+    bomAccess: 8,
+    canHrdps: 10,
+};
 
 const CITYTILE_BASE = 'https://node.windy.com/citytile/v1.0';
 
@@ -33,7 +59,8 @@ export interface DownloadResult {
 export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResult> {
     const hours = opts.hours ?? 68;
     const step = opts.step ?? 1;
-    const zoomLevels = opts.zoomLevels ?? getZoomLevels(opts.bbox);
+    const maxZoom = MODEL_MAX_ZOOM[opts.model] ?? 8;
+    const zoomLevels = (opts.zoomLevels ?? getZoomLevels(opts.bbox)).filter(z => z <= maxZoom);
 
     // Générer toutes les tiles avec le token d'auth
     const token = getCapturedToken();
@@ -112,14 +139,21 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
 }
 
 function buildCitytileUrl(model: string, tile: TileCoord, refTime: string, hours: number, step: number, token?: string | null): string {
-    // Nettoyer refTime : retirer millisecondes et suffixe 'Z'
-    const cleanRefTime = refTime.replace(/\.\d{3}Z?$/, '').replace(/Z$/, '');
+    // Garder le format ISO avec 'Z' (Windy le valide)
+    const cleanRefTime = refTime.replace(/\.\d{3}Z?$/, 'Z');
     const params = new URLSearchParams({
         refTime: cleanRefTime,
         hours: String(hours),
         step: String(step),
     });
     if (token) params.set('token2', token);
+    // Ajouter les params capturés de Windy (uid, pr, sc, poc, v, labelsVersion)
+    const captured = getCapturedParams();
+    if (captured) {
+        for (const [k, v] of Object.entries(captured)) {
+            if (!params.has(k)) params.set(k, v);
+        }
+    }
     return `${CITYTILE_BASE}/${model}/${tile.z}/${tile.x}/${tile.y}?${params.toString()}`;
 }
 
