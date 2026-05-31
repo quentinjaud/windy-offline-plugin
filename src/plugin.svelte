@@ -47,6 +47,9 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
 
+    import DownloadPanel from './DownloadPanel.svelte';
+    import OfflinePanel from './OfflinePanel.svelte';
+
     import config from './pluginConfig';
     import { install, uninstall } from './lib/cacheProxy';
     import { getActivePackId, setActivePackId } from './lib/packState';
