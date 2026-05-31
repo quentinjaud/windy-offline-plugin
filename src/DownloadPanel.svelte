@@ -8,6 +8,7 @@
     export let downloading: boolean;
     export let progress: { downloaded: number; total: number };
     export let errorMsg: string;
+    export let mapAvailable = true;
 
     const dispatch = createEventDispatcher<{
         selectModel: string;
@@ -48,9 +49,11 @@
         </div>
 
         <div class="actions">
+            {#if mapAvailable}
             <button class="btn orange" on:click={ () => dispatch('startDraw') } disabled={downloading}>
                 ✏️ Rectangle
             </button>
+            {/if}
             <button class="btn green" on:click={ () => dispatch('screenZone') } disabled={downloading}>
                 📺 Zone écran
             </button>

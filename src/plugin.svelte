@@ -24,6 +24,7 @@
             {downloading}
             {progress}
             {errorMsg}
+            {mapAvailable}
             on:selectModel={ (e) => model = e.detail }
             on:startDraw={ startDrawing }
             on:screenZone={ useScreenZone }
@@ -57,17 +58,29 @@
     import { downloadTiles } from './lib/downloadManager';
 
     // Chargement lazy — @windy/map n'est pas dispo sur mobile
+    // Leaflet est global dans Windy (via <script>)
+    declare const L: any;
     let map: any = null;
-    let L: any = null;
 
-    async function ensureMap(): Promise<boolean> {
-        if (map) return true;
+    /** Récupère l'instance Leaflet — essaie @windy/map puis DOM */
+    function getWindyMap(): any {
+        // Si déjà chargé via @windy/map (desktop)
+        if (map) return map;
+        // Fallback mobile : l'instance Leaflet est dans le DOM
+        const container = document.querySelector('.leaflet-container');
+        if (container) {
+            return (container as any)._leaflet_map || null;
+        }
+        return null;
+    }
+
+    async function ensureMap(): Promise<void> {
+        if (map) return;
         try {
             const windyMap = await import('@windy/map');
             map = windyMap.map;
-            return true;
         } catch {
-            return false;
+            map = getWindyMap();
         }
     }
 
@@ -83,6 +96,7 @@
     let packs: Pack[] = [];
     let activePackId: string | null = null;
     let cacheSize = 0;
+    let mapAvailable = false; // true si @windy/map ou L global est dispo
 
     // Rectangle drawing layer
     let rectLayer: L.Rectangle | null = null;
@@ -162,9 +176,10 @@
         }
     }
 
-    function useScreenZone(): void {
+    async function useScreenZone(): Promise<void> {
+        await ensureMap();
         if (!map) {
-            errorMsg = 'Fonction indisponible sur cette plateforme.';
+            errorMsg = 'Impossible d\'accéder à la carte.';
             return;
         }
         const bounds = map.getBounds();
@@ -311,9 +326,11 @@
         });
     }
 
-    onMount(() => {
+    onMount(async () => {
         install();
         loadPacks();
+        await ensureMap();
+        mapAvailable = !!map;
     });
 
     onDestroy(() => {
