@@ -49,11 +49,12 @@
 
     import config from './pluginConfig';
     import { install, uninstall } from './lib/cacheProxy';
-    import { isOfflineMode, getActivePackId, setActivePackId } from './lib/packState';
-    import { getPack, getAllPacks, deletePack as deletePackFromDB, getCacheSize as getTotalCacheSize } from './lib/storage';
+    import { getActivePackId, setActivePackId } from './lib/packState';
+    import { getAllPacks, deletePack as deletePackFromDB, getCacheSize as getTotalCacheSize } from './lib/storage';
     import type { Pack } from './lib/storage';
-    import { estimateTileCount } from './lib/tileMath';
     import type { BBox } from './lib/tileMath';
+    import { getZoomLevels } from './lib/tileMath';
+    import { formatDate } from './lib/format';
     import { downloadTiles } from './lib/downloadManager';
 
     // Chargement lazy — @windy/map n'est pas dispo sur mobile
@@ -110,6 +111,7 @@
     // Rectangle drawing layer
     let rectLayer: L.Rectangle | null = null;
     let pointA: L.LatLng | null = null;
+    let clickHandler: ((e: L.LeafletMouseEvent) => void) | null = null;
 
     // Progress
     interface Progress {
@@ -118,12 +120,19 @@
     }
     let progress: Progress = { downloaded: 0, total: 0 };
 
+    // AbortController pour annuler le téléchargement
+    let abortController: AbortController | null = null;
+
     function loadPacks(): void {
         getAllPacks().then(p => {
             packs = p;
+        }).catch(() => {
+            // IndexedDB indisponible, affichage dégradé
         });
         getTotalCacheSize().then(s => {
             cacheSize = s;
+        }).catch(() => {
+            cacheSize = 0;
         });
         activePackId = getActivePackId();
     }
@@ -166,8 +175,10 @@
                 drawing = false;
                 map.getContainer().style.cursor = '';
                 map.off('click', onClick);
+                clickHandler = null;
             }
         };
+        clickHandler = onClick;
 
         map.on('click', onClick);
     }
@@ -177,7 +188,10 @@
         drawing = false;
         if (map) {
             map.getContainer().style.cursor = '';
-            map.off('click', onClick);
+            if (clickHandler) {
+                map.off('click', clickHandler);
+                clickHandler = null;
+            }
             if (rectLayer) {
                 map.removeLayer(rectLayer);
                 rectLayer = null;
@@ -215,9 +229,12 @@
         errorMsg = '';
         downloading = true;
 
+        // Annuler le téléchargement précédent s'il existe
+        abortController?.abort();
+        abortController = new AbortController();
+
         try {
             const packId = `pack-${Date.now()}`;
-            const zoomLevels = [5, 6, 7, 8, 9];
             const hours = getMaxHours(model);
 
             const result = await downloadTiles({
@@ -226,8 +243,8 @@
                 refTime: getRefTime(),
                 hours,
                 step: 1,
-                zoomLevels,
                 packId,
+                signal: abortController.signal,
                 onProgress: (d, t) => {
                     progress = { downloaded: d, total: t };
                 },
@@ -239,7 +256,7 @@
                     name: `${model.toUpperCase()} ${formatDate(new Date())}`,
                     model,
                     bbox: rectBounds,
-                    zoomLevels,
+                    zoomLevels: getZoomLevels(rectBounds),
                     timeRange: {
                         start: getRefTime(),
                         end: addHours(getRefTime(), hours),
@@ -258,14 +275,19 @@
                 errorMsg = '';
             }
         } catch (e) {
-            errorMsg = `Erreur: ${e}`;
+            if (abortController?.signal.aborted) {
+                errorMsg = 'Téléchargement annulé.';
+            } else {
+                errorMsg = `Erreur: ${e}`;
+            }
         } finally {
             downloading = false;
+            abortController = null;
         }
     }
 
     function cancelDownload(): void {
-        // TODO: implémenter AbortController pour annuler
+        abortController?.abort();
         downloading = false;
     }
 
@@ -315,8 +337,12 @@
     }
 
     function getRefTime(): string {
-        // Utiliser le dernier run disponible — simplifié pour v0.1
+        // Dernier run modèle : arrondi au multiple de 6h le plus proche dans le passé.
+        // Les runs GFS/ECMWF sont à 00Z, 06Z, 12Z, 18Z.
         const now = new Date();
+        const hours = now.getUTCHours();
+        const lastRunHour = Math.floor(hours / 6) * 6;
+        now.setUTCHours(lastRunHour, 0, 0, 0);
         return now.toISOString();
     }
 
@@ -326,14 +352,7 @@
         return d.toISOString();
     }
 
-    function formatDate(date: Date): string {
-        return date.toLocaleDateString('fr-FR', {
-            day: '2-digit',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    }
+
 
     onMount(async () => {
         install();
@@ -435,35 +454,5 @@
         color: #f44336;
         margin-top: 4px;
     }
-    .pack-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-    .pack-item {
-        padding: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
-        margin-bottom: 6px;
-    }
-    .pack-item.active {
-        border-color: #ff9800;
-    }
-    .pack-name {
-        font-weight: bold;
-        font-size: 0.85em;
-    }
-    .pack-info {
-        font-size: 0.75em;
-        color: #999;
-    }
-    .pack-actions {
-        display: flex;
-        gap: 4px;
-        margin-top: 4px;
-    }
-    .pack-actions .btn {
-        font-size: 0.75em;
-        padding: 3px 8px;
-    }
+
 </style>

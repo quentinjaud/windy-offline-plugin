@@ -1,6 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
     import type { BBox } from './lib/tileMath';
+    import { estimateTileCount } from './lib/tileMath';
 
     export let model: string;
     export let rectBounds: BBox | null;
@@ -24,7 +25,7 @@
         'icon', 'iconEu', 'iconD2', 'namConus', 'hrrrConus', 'nems', 'ukv'
     ];
 
-    $: tileEstimate = rectBounds ? 42 : 0; // estimation ultra-simplifiée pour v0.1
+    $: tileEstimate = rectBounds ? estimateTileCount(rectBounds, [5, 6, 7, 8, 9]) : 0;
     $: sizeEstimate = tileEstimate > 0 ? tileEstimate * 5 : 0; // ~5 Ko/tile
     $: pct = progress.total > 0 ? Math.round((progress.downloaded / progress.total) * 100) : 0;
 </script>

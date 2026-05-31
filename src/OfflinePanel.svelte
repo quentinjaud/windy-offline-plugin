@@ -1,6 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
     import type { Pack } from './lib/storage';
+    import { formatDate } from './lib/format';
 
     export let packs: Pack[];
     export let activePackId: string | null;
@@ -18,15 +19,7 @@
         return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
     }
 
-    function formatDate(iso: string): string {
-        const d = new Date(iso);
-        return d.toLocaleDateString('fr-FR', {
-            day: '2-digit',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    }
+
 </script>
 
 <div class="offline-panel">
@@ -86,5 +79,36 @@
     }
     .empty p {
         margin: 4px 0;
+    }
+    .pack-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .pack-item {
+        padding: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        margin-bottom: 6px;
+    }
+    .pack-item.active {
+        border-color: #ff9800;
+    }
+    .pack-name {
+        font-weight: bold;
+        font-size: 0.85em;
+    }
+    .pack-info {
+        font-size: 0.75em;
+        color: #999;
+    }
+    .pack-actions {
+        display: flex;
+        gap: 4px;
+        margin-top: 4px;
+    }
+    .pack-actions .btn {
+        font-size: 0.75em;
+        padding: 3px 8px;
     }
 </style>

@@ -3,7 +3,7 @@
 
 import { bboxToTiles, getZoomLevels, estimateTileCount, type BBox, type TileCoord } from './tileMath';
 import { normalizeUrl } from './urlUtils';
-import { putCacheEntry } from './storage';
+import { putCacheEntry, getCacheEntry } from './storage';
 
 const CITYTILE_BASE = 'https://node.windy.com/citytile/v1.0';
 
@@ -15,6 +15,7 @@ export interface DownloadOptions {
     step?: number;       // pas en heures (défaut: 1)
     zoomLevels?: number[];
     packId: string;      // ID du pack à créer
+    signal?: AbortSignal; // pour annulation
     onProgress?: (downloaded: number, total: number) => void;
 }
 
@@ -51,7 +52,24 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
     opts.onProgress?.(0, total);
 
     for (let i = 0; i < allTiles.length; i++) {
-        const { url } = allTiles[i];
+        const { tile, url } = allTiles[i];
+
+        // Vérifier l'annulation
+        if (opts.signal?.aborted) {
+            errors.push('Téléchargement annulé');
+            break;
+        }
+
+        const cacheKey = normalizeUrl(url);
+
+        // Déduplication : sauter si déjà en cache
+        const existing = await getCacheEntry(cacheKey);
+        if (existing) {
+            downloaded++;
+            totalSize += existing.size;
+            opts.onProgress?.(i + 1, total);
+            continue;
+        }
 
         try {
             const response = await fetch(url);
@@ -65,7 +83,6 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
             const body = JSON.stringify(json);
             const size = body.length;
 
-            const cacheKey = normalizeUrl(url);
             await putCacheEntry({
                 url: cacheKey,
                 json,
