@@ -25,6 +25,11 @@ export function getCapturedParams(): Record<string, string> | null {
     return capturedParams;
 }
 
+/** Retourne le fetch original (avant monkey-patch) pour contourner le proxy */
+export function getOriginalFetch(): typeof window.fetch {
+    return originalFetch || window.fetch;
+}
+
 export function install(): void {
     installCount++;
     if (installCount > 1) return; // déjà installé
@@ -42,21 +47,20 @@ export function install(): void {
             return originalFetch!(input, init);
         }
 
-        // Capturer le token d'auth et les params de query pour les téléchargements manuels
+        // Capturer le token d'auth
         const parsedUrl = new URL(url);
         const token = parsedUrl.searchParams.get('token2');
-        if (token) {
-            capturedToken = token;
-            // Capturer tous les params récurrents de Windy (uid, pr, sc, poc, v, labelsVersion)
-            const keys = ['uid', 'pr', 'sc', 'poc', 'v', 'labelsVersion'];
-            const params: Record<string, string> = {};
-            for (const key of keys) {
-                const val = parsedUrl.searchParams.get(key);
-                if (val) params[key] = val;
-            }
-            if (Object.keys(params).length > 0) {
-                capturedParams = params;
-            }
+        if (token) capturedToken = token;
+
+        // Capturer les params de session Windy (indépendamment du token)
+        const keys = ['uid', 'pr', 'sc', 'poc', 'v', 'labelsVersion'];
+        const params: Record<string, string> = {};
+        for (const key of keys) {
+            const val = parsedUrl.searchParams.get(key);
+            if (val) params[key] = val;
+        }
+        if (Object.keys(params).length > 0) {
+            capturedParams = params;
         }
 
         const cacheKey = normalizeUrl(url);

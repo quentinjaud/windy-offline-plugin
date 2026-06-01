@@ -4,7 +4,7 @@
 import { bboxToTiles, getZoomLevels, estimateTileCount, type BBox, type TileCoord } from './tileMath';
 import { normalizeUrl } from './urlUtils';
 import { putCacheEntry, getCacheEntry } from './storage';
-import { getCapturedToken, getCapturedParams } from './cacheProxy';
+import { getCapturedToken, getCapturedParams, getOriginalFetch } from './cacheProxy';
 
 /**
  * Résolution max (zoom) par modèle météo.
@@ -19,7 +19,6 @@ const MODEL_MAX_ZOOM: Record<string, number> = {
     iconEu: 9,
     iconD2: 10,
     arome: 9,
-    aromeFrance: 9,
     namConus: 9,
     namHawaii: 9,
     namAlaska: 9,
@@ -101,7 +100,8 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
         }
 
         try {
-            const response = await fetch(url);
+            const originalFetch = getOriginalFetch();
+            const response = await originalFetch(url);
 
             if (!response.ok) {
                 errors.push(`${url}: HTTP ${response.status}`);
@@ -161,4 +161,4 @@ function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export { estimateTileCount, getZoomLevels };
+export { estimateTileCount, getZoomLevels, MODEL_MAX_ZOOM };

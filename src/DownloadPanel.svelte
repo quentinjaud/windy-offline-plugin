@@ -1,7 +1,8 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
     import type { BBox } from './lib/tileMath';
-    import { estimateTileCount } from './lib/tileMath';
+    import { estimateTileCount, getZoomLevels } from './lib/tileMath';
+    import { MODEL_MAX_ZOOM } from './lib/downloadManager';
 
     export let model: string;
     export let rectBounds: BBox | null;
@@ -21,11 +22,12 @@
     }>();
 
     const MODELS = [
-        'arome', 'aromeFrance', 'gfs', 'gfsWaves', 'ecmwf', 'ecmwfWaves',
+        'arome', 'gfs', 'gfsWaves', 'ecmwf', 'ecmwfWaves',
         'icon', 'iconEu', 'iconD2', 'namConus', 'hrrrConus', 'nems', 'ukv'
     ];
 
-    $: tileEstimate = rectBounds ? estimateTileCount(rectBounds, [5, 6, 7, 8, 9]) : 0;
+    $: maxZoom = MODEL_MAX_ZOOM[model] ?? 8;
+    $: tileEstimate = rectBounds ? estimateTileCount(rectBounds, getZoomLevels(rectBounds).filter(z => z <= maxZoom)) : 0;
     $: sizeEstimate = tileEstimate > 0 ? tileEstimate * 5 : 0; // ~5 Ko/tile
     $: pct = progress.total > 0 ? Math.round((progress.downloaded / progress.total) * 100) : 0;
 </script>

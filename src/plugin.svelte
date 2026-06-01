@@ -53,7 +53,7 @@
     import config from './pluginConfig';
     import { install, uninstall } from './lib/cacheProxy';
     import { getActivePackId, setActivePackId } from './lib/packState';
-    import { getAllPacks, deletePack as deletePackFromDB, getCacheSize as getTotalCacheSize } from './lib/storage';
+    import { getAllPacks, deletePack as deletePackFromDB, getCacheSize as getTotalCacheSize, putPack } from './lib/storage';
     import type { Pack } from './lib/storage';
     import type { BBox } from './lib/tileMath';
     import { getZoomLevels } from './lib/tileMath';
@@ -117,6 +117,7 @@
     }
 
     function startDrawing(): void {
+        if (!map) return;
         drawing = true;
         rectBounds = null;
         errorMsg = '';
@@ -159,6 +160,7 @@
     }
 
     function cancelDrawing(): void {
+        if (!map) return;
         pointA = null;
         drawing = false;
         map.getContainer().style.cursor = '';
@@ -173,6 +175,7 @@
     }
 
     async function useScreenZone(): Promise<void> {
+        if (!map) return;
         const bounds = map.getBounds();
         rectBounds = {
             n: bounds.getNorth(),
@@ -233,7 +236,7 @@
                     totalSize: result.totalSize,
                     createdAt: new Date().toISOString(),
                 };
-                await import('./lib/storage').then(m => m.putPack(pack));
+                await putPack(pack);
                 loadPacks();
             }
 
@@ -289,7 +292,6 @@
             iconEu: 120,
             iconD2: 48,
             arome: 68,
-            aromeFrance: 68,
             namConus: 84,
             namHawaii: 60,
             namAlaska: 60,
@@ -343,7 +345,7 @@
 
     onDestroy(() => {
         uninstall();
-        if (rectLayer) map.removeLayer(rectLayer);
+        if (rectLayer && map) map.removeLayer(rectLayer);
     });
 </script>
 

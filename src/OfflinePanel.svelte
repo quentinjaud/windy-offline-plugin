@@ -1,7 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher } from 'svelte';
     import type { Pack } from './lib/storage';
-    import { formatDate } from './lib/format';
+    import { formatDate, formatSize } from './lib/format';
 
     export let packs: Pack[];
     export let activePackId: string | null;
@@ -12,13 +12,6 @@
         deactivatePack: void;
         deletePack: string;
     }>();
-
-    function formatSize(bytes: number): string {
-        if (bytes < 1024) return `${bytes} o`;
-        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
-        return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
-    }
-
 
 </script>
 
