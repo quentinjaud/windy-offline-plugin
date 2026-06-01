@@ -347,20 +347,21 @@
             console.warn('[Windy Offline] Map detection error:', e);
         }
 
-        // Mobile: le conteneur du plugin est dans l'ordre DOM AVANT la progress bar,
-        // donc même avec z-index il reste en dessous. Solution Windy officielle :
-        // déplacer le noeud dans [data-plugin="bottom-below-controls-mobile"]
-        // et appliquer la classe plugin-mobile-bottom-small.
-        const pluginNode = document.getElementById('plugin');
-        if (pluginNode) {
-            const container = pluginNode.parentElement;
-            if (container && window.getComputedStyle(container).position === 'fixed') {
-                const mobileSlot = document.querySelector('[data-plugin="bottom-below-controls-mobile"]');
-                if (mobileSlot) {
-                    mobileSlot.appendChild(container);
-                    container.classList.add('plugin-mobile-bottom-small');
-                }
+        // Mobile: le conteneur du plugin (fixed; bottom:0) est dans l'ordre DOM
+        // AVANT la progress bar → même z-index ne suffit pas. Pattern validé par
+        // Clouds Horizon Distance + SoarCalc : utiliser @windy/plugins pour récupérer
+        // le noeud, le déplacer en fin de body, et forcer z-index + pointer-events.
+        try {
+            const { default: plugins } = await import('@windy/plugins');
+            const thisPlugin = (plugins as any)['windy-plugin-offline'];
+            if (thisPlugin?.window?.node) {
+                const node = thisPlugin.window.node as HTMLElement;
+                node.style.zIndex = '2147483647';
+                node.style.pointerEvents = 'auto';
+                document.body.appendChild(node);
             }
+        } catch {
+            // @windy/plugins indisponible (desktop rhpane) — pas nécessaire
         }
 
         install();
