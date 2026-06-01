@@ -59,10 +59,10 @@
     import { getZoomLevels } from './lib/tileMath';
     import { formatDate } from './lib/format';
     import { downloadTiles } from './lib/downloadManager';
-    import { map } from '@windy/map';
 
     declare const L: any;
-    let mapAvailable = true;
+    let map: any;
+    let mapAvailable = false;
 
     const { title } = config;
 
@@ -323,6 +323,20 @@
 
 
     onMount(async () => {
+        // Détecter la carte — desktop (window.W.map) ou Android (global W.map via plugin)
+        // Fallback : Leaflet global récupéré depuis le DOM
+        try {
+            map = (typeof (window as any).W !== 'undefined' && (window as any).W.map) ? (window as any).W.map : null;
+            if (!map) {
+                // Fallback Leaflet : cherche l'instance dans le DOM
+                const container = document.querySelector('.leaflet-container') as any;
+                map = container?._leaflet_map ?? null;
+            }
+            mapAvailable = map !== null;
+        } catch {
+            mapAvailable = false;
+        }
+
         install();
         loadPacks();
     });
