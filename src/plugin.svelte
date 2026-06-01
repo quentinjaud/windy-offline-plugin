@@ -358,6 +358,12 @@
 </script>
 
 <style lang="less">
+    /* z-index élevé pour passer au-dessus du slider timestamp natif Windy en mobile */
+    :global(#plugin) {
+        z-index: 2000 !important;
+        position: relative;
+    }
+
     .plugin__content {
         padding: 12px;
     }

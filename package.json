@@ -1,6 +1,6 @@
 {
     "name": "windy-plugin-offline",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "Plugin Windy pour télécharger et consulter des données météo hors-ligne",
     "main": "dist/plugin.min.js",
     "type": "module",
