@@ -63,6 +63,7 @@
     declare const L: any;
     let map: any;
     let mapAvailable = false;
+    let mapDetectionAttempted = false;
 
     const { title } = config;
 
@@ -117,7 +118,7 @@
     }
 
     function startDrawing(): void {
-        if (!map) return;
+        if (!map) { console.warn('[Windy Offline] startDrawing: map not detected'); return; }
         drawing = true;
         rectBounds = null;
         errorMsg = '';
@@ -160,7 +161,7 @@
     }
 
     function cancelDrawing(): void {
-        if (!map) return;
+        if (!map) { console.warn('[Windy Offline] cancelDrawing: map not detected'); return; }
         pointA = null;
         drawing = false;
         map.getContainer().style.cursor = '';
@@ -175,7 +176,7 @@
     }
 
     async function useScreenZone(): Promise<void> {
-        if (!map) return;
+        if (!map) { console.warn('[Windy Offline] useScreenZone: map not detected'); return; }
         const bounds = map.getBounds();
         rectBounds = {
             n: bounds.getNorth(),
@@ -207,11 +208,12 @@
         try {
             const packId = `pack-${Date.now()}`;
             const hours = getMaxHours(model);
+            const refTime = getRefTime(); // appel UNIQUE — ne pas rappeler (boundary 00Z/06Z/12Z/18Z)
 
             const result = await downloadTiles({
                 model,
                 bbox: rectBounds,
-                refTime: getRefTime(),
+                refTime,
                 hours,
                 step: 1,
                 packId,
@@ -229,8 +231,8 @@
                     bbox: rectBounds,
                     zoomLevels: getZoomLevels(rectBounds),
                     timeRange: {
-                        start: getRefTime(),
-                        end: addHours(getRefTime(), hours),
+                        start: refTime,
+                        end: addHours(refTime, hours),
                     },
                     tileCount: result.tileCount,
                     totalSize: result.totalSize,
@@ -335,8 +337,14 @@
                 map = container?._leaflet_map ?? null;
             }
             mapAvailable = map !== null;
-        } catch {
+            mapDetectionAttempted = true;
+            if (!mapAvailable) {
+                console.warn('[Windy Offline] Map detection failed — window.W.map not found, no Leaflet container in DOM');
+            }
+        } catch (e) {
             mapAvailable = false;
+            mapDetectionAttempted = true;
+            console.warn('[Windy Offline] Map detection error:', e);
         }
 
         install();

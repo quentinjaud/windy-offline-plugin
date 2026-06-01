@@ -41,7 +41,9 @@
 
     {#if !downloading}
         <div class="zone-info">
-            {#if rectBounds}
+            {#if !mapAvailable}
+                <div class="info" style="color:#f44336">⚠️ Carte non détectée — recharge la page Windy</div>
+            {:else if rectBounds}
                 Zone: {rectBounds.n.toFixed(1)}°N {rectBounds.s.toFixed(1)}°S / {rectBounds.e.toFixed(1)}°E {rectBounds.w.toFixed(1)}°W
                 <div class="info">~{tileEstimate} tiles estimées (~{sizeEstimate} Ko)</div>
             {:else if drawing}
@@ -56,10 +58,10 @@
             <button class="btn orange" on:click={ () => dispatch('startDraw') } disabled={downloading}>
                 ✏️ Rectangle
             </button>
-            {/if}
             <button class="btn green" on:click={ () => dispatch('screenZone') } disabled={downloading}>
                 📺 Zone écran
             </button>
+            {/if}
             <button class="btn" on:click={ () => dispatch('cancelDraw') } disabled={!drawing && !rectBounds}>
                 ✖ Effacer
             </button>
@@ -69,7 +71,7 @@
             class="btn green"
             style="width:100%;margin-top:8px"
             on:click={ () => dispatch('startDownload') }
-            disabled={!rectBounds}
+            disabled={!rectBounds || !mapAvailable}
         >
             📥 Télécharger
         </button>
