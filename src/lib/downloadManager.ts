@@ -1,35 +1,11 @@
 // DownloadManager — construit les URLs citytile pour une zone/modèle/plage
 // et télécharge avec progression.
 
-import { bboxToTiles, getZoomLevels, estimateTileCount, type BBox, type TileCoord } from './tileMath';
+import { bboxToTiles, getZoomLevels, type BBox, type TileCoord } from './tileMath';
 import { normalizeUrl } from './urlUtils';
 import { putCacheEntry, getCacheEntry } from './storage';
 import { getCapturedToken, getCapturedParams, getOriginalFetch } from './cacheProxy';
-
-/**
- * Résolution max (zoom) par modèle météo.
- * Au-delà, l'API citytile renvoie 400.
- */
-const MODEL_MAX_ZOOM: Record<string, number> = {
-    gfs: 8,
-    gfsWaves: 8,
-    ecmwf: 7,
-    ecmwfWaves: 7,
-    icon: 8,
-    iconEu: 9,
-    iconD2: 10,
-    arome: 9,
-    namConus: 9,
-    namHawaii: 9,
-    namAlaska: 9,
-    nems: 8,
-    hrrrConus: 10,
-    hrrrAlaska: 10,
-    ukv: 10,
-    jmaMsm: 9,
-    bomAccess: 8,
-    canHrdps: 10,
-};
+import { getMaxZoom } from './models';
 
 const CITYTILE_BASE = 'https://node.windy.com/citytile/v1.0';
 
@@ -60,7 +36,7 @@ export interface DownloadResult {
 export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResult> {
     const hours = opts.hours ?? 68;
     const step = opts.step ?? 1;
-    const maxZoom = MODEL_MAX_ZOOM[opts.model] ?? 8;
+    const maxZoom = getMaxZoom(opts.model);
     const zoomLevels = (opts.zoomLevels ?? getZoomLevels(opts.bbox)).filter(z => z <= maxZoom);
 
     // Générer toutes les tiles avec le token d'auth
@@ -164,4 +140,20 @@ function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export { estimateTileCount, getZoomLevels, MODEL_MAX_ZOOM };
+/**
+ * RefTime du dernier run modèle : arrondi au multiple de 6h le plus proche
+ * dans le passé (runs GFS/ECMWF à 00Z, 06Z, 12Z, 18Z).
+ */
+export function getRefTime(now: Date = new Date()): string {
+    const d = new Date(now);
+    const lastRunHour = Math.floor(d.getUTCHours() / 6) * 6;
+    d.setUTCHours(lastRunHour, 0, 0, 0);
+    return d.toISOString();
+}
+
+/** Décale une date ISO de `hours` heures (UTC). */
+export function addHours(iso: string, hours: number): string {
+    const d = new Date(iso);
+    d.setUTCHours(d.getUTCHours() + hours);
+    return d.toISOString();
+}

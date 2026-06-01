@@ -2,8 +2,8 @@
     import { createEventDispatcher } from 'svelte';
     import type { BBox } from './lib/tileMath';
     import { estimateTileCount, getZoomLevels } from './lib/tileMath';
-    import { MODEL_MAX_ZOOM } from './lib/downloadManager';
-    import { formatSize } from './lib/format';
+    import { getMaxZoom, SELECTABLE_MODELS } from './lib/models';
+    import { formatSize, formatBBox } from './lib/format';
 
     export let model: string;
     export let rectBounds: BBox | null;
@@ -22,12 +22,7 @@
         cancelDownload: void;
     }>();
 
-    const MODELS = [
-        'arome', 'gfs', 'gfsWaves', 'ecmwf', 'ecmwfWaves',
-        'icon', 'iconEu', 'iconD2', 'namConus', 'hrrrConus', 'nems', 'ukv',
-    ];
-
-    $: maxZoom = MODEL_MAX_ZOOM[model] ?? 8;
+    $: maxZoom = getMaxZoom(model);
     $: tileEstimate = rectBounds
         ? estimateTileCount(rectBounds, getZoomLevels(rectBounds).filter(z => z <= maxZoom))
         : 0;
@@ -41,8 +36,8 @@
         <label class="field">
             <span class="field__label">Modèle météo</span>
             <select bind:value={ model } on:change={ () => dispatch('selectModel', model) }>
-                {#each MODELS as m}
-                    <option value={m}>{m.toUpperCase()}</option>
+                {#each SELECTABLE_MODELS as m}
+                    <option value={m.id}>{m.label}</option>
                 {/each}
             </select>
         </label>
@@ -52,9 +47,7 @@
                 <div class="zone__hint zone__hint--warn">⚠️ Carte non détectée — recharge la page Windy.</div>
             {:else if rectBounds}
                 <div class="zone__title">📍 Zone sélectionnée</div>
-                <div class="zone__coords">
-                    {rectBounds.n.toFixed(1)}°N · {rectBounds.s.toFixed(1)}°S · {rectBounds.e.toFixed(1)}°E · {rectBounds.w.toFixed(1)}°W
-                </div>
+                <div class="zone__coords">{formatBBox(rectBounds)}</div>
                 <div class="zone__estimate">~{tileEstimate} tiles · ~{formatSize(sizeEstimate)}</div>
             {:else if drawing}
                 <div class="zone__hint">✏️ Clique deux points sur la carte pour délimiter la zone.</div>
@@ -112,42 +105,7 @@
         gap: 12px;
     }
 
-    /* Bouton-pilule, calqué sur le .button natif Windy et piloté par ses variables */
-    .wbtn {
-        cursor: pointer;
-        appearance: none;
-        box-sizing: border-box;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        border: 0;
-        border-radius: 2em;
-        padding: 0.5em 1.1em;
-        font-size: 0.85em;
-        font-weight: 400;
-        line-height: normal;
-        color: var(--color-white, #f8f8f8);
-        background-color: var(--color-ui-primary, #9d0300);
-        transition: filter 0.15s, background 0.15s;
-    }
-    .wbtn:hover:not(:disabled) {
-        filter: brightness(1.12);
-    }
-    .wbtn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-    .wbtn--ghost {
-        background-color: transparent;
-        color: var(--color-text-primary, #ccc);
-        border: 1px solid var(--color-border, rgba(255, 255, 255, 0.2));
-    }
-    .wbtn--ghost:hover:not(:disabled) {
-        filter: none;
-        border-color: var(--color-border-selected, var(--color-orange, #d49500));
-        color: var(--color-text-secondary, #fff);
-    }
+    /* Styles de base .wbtn / .wbtn--ghost définis globalement dans plugin.svelte */
     .wbtn.is-active {
         border-color: var(--color-border-selected, var(--color-orange, #d49500));
         color: var(--color-border-selected, var(--color-orange, #d49500));

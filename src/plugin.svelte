@@ -64,7 +64,8 @@
     import type { BBox } from './lib/tileMath';
     import { getZoomLevels } from './lib/tileMath';
     import { formatDate } from './lib/format';
-    import { downloadTiles } from './lib/downloadManager';
+    import { downloadTiles, getRefTime, addHours } from './lib/downloadManager';
+    import { getMaxHours } from './lib/models';
 
     declare const L: any;
     let mapAvailable = false;
@@ -281,49 +282,6 @@
         loadPacks();
     }
 
-    // Hours max par modèle — valeurs standard
-    function getMaxHours(model: string): number {
-        const maxHours: Record<string, number> = {
-            gfs: 384,
-            gfsWaves: 384,
-            ecmwf: 240,
-            ecmwfWaves: 240,
-            icon: 180,
-            iconEu: 120,
-            iconD2: 48,
-            arome: 68,
-            namConus: 84,
-            namHawaii: 60,
-            namAlaska: 60,
-            nems: 72,
-            hrrrConus: 48,
-            hrrrAlaska: 48,
-            ukv: 120,
-            jmaMsm: 84,
-            bomAccess: 168,
-            canHrdps: 48,
-        };
-        return maxHours[model] ?? 68;
-    }
-
-    function getRefTime(): string {
-        // Dernier run modèle : arrondi au multiple de 6h le plus proche dans le passé.
-        // Les runs GFS/ECMWF sont à 00Z, 06Z, 12Z, 18Z.
-        const now = new Date();
-        const hours = now.getUTCHours();
-        const lastRunHour = Math.floor(hours / 6) * 6;
-        now.setUTCHours(lastRunHour, 0, 0, 0);
-        return now.toISOString();
-    }
-
-    function addHours(iso: string, hours: number): string {
-        const d = new Date(iso);
-        d.setUTCHours(d.getUTCHours() + hours);
-        return d.toISOString();
-    }
-
-
-
     onMount(() => {
         install();
         loadPacks();
@@ -395,5 +353,44 @@
     }
     .tab.active .tab__count {
         background-color: rgba(0, 0, 0, 0.25);
+    }
+
+    /* Bouton-pilule calqué sur le .button natif Windy, piloté par ses variables
+       de thème. Défini en :global pour être partagé par DownloadPanel et
+       OfflinePanel (composants enfants) sans duplication. */
+    :global(.wbtn) {
+        cursor: pointer;
+        appearance: none;
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 0;
+        border-radius: 2em;
+        padding: 0.5em 1.1em;
+        font-size: 0.85em;
+        font-weight: 400;
+        line-height: normal;
+        color: var(--color-white, #f8f8f8);
+        background-color: var(--color-ui-primary, #9d0300);
+        transition: filter 0.15s, border-color 0.15s;
+    }
+    :global(.wbtn:hover:not(:disabled)) {
+        filter: brightness(1.12);
+    }
+    :global(.wbtn:disabled) {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    :global(.wbtn--ghost) {
+        background-color: transparent;
+        color: var(--color-text-primary, #ccc);
+        border: 1px solid var(--color-border, rgba(255, 255, 255, 0.2));
+    }
+    :global(.wbtn--ghost:hover:not(:disabled)) {
+        filter: none;
+        border-color: var(--color-border-selected, var(--color-orange, #d49500));
+        color: var(--color-text-secondary, #fff);
     }
 </style>
