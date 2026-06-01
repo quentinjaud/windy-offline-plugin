@@ -21,7 +21,7 @@ Le rendu météo reste assuré par Windy. Le plugin agit comme un cache local tr
 1. **CacheProxy** — monkey-patch `window.fetch`, intercepte `citytile` → IndexedDB
 2. **StorageEngine** — IndexedDB vanilla, stores `CacheEntry` + `Pack`
 3. **DownloadManager** — bbox → tiles Z/X/Y → URLs citytile → téléchargement
-4. **UI** — Svelte, `desktopUI: rhpane`, `mobileUI: small`
+4. **UI** — Svelte, `desktopUI: rhpane`, `mobileUI: fullscreen`
 
 URL de cache = URL normalisée (strip params volatils).
 

@@ -6,13 +6,16 @@
         { title }
     </div>
 
+    <p class="intro">Télécharge des couches météo pour les consulter sans connexion. Le rendu reste assuré par Windy.</p>
+
     <!-- Mode tabs -->
-    <div class="tabs">
+    <div class="tabs" role="tablist">
         <button class="tab" class:active={ mode === 'download' } on:click={ () => mode = 'download' }>
             📥 Télécharger
         </button>
         <button class="tab" class:active={ mode === 'offline' } on:click={ () => mode = 'offline' }>
-            💾 Offline ({ packs.length })
+            💾 Hors-ligne
+            {#if packs.length > 0}<span class="tab__count">{ packs.length }</span>{/if}
         </button>
     </div>
 
@@ -47,6 +50,9 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
 
+    import bcast from '@windy/broadcast';
+    import { map, whenMapInitialized } from '@windy/map';
+
     import DownloadPanel from './DownloadPanel.svelte';
     import OfflinePanel from './OfflinePanel.svelte';
 
@@ -61,20 +67,12 @@
     import { downloadTiles } from './lib/downloadManager';
 
     declare const L: any;
-    let map: any;
     let mapAvailable = false;
-    let mapDetectionAttempted = false;
 
     const { title } = config;
 
-    // Lazy load @windy/broadcast — contourne le crash au chargement du plugin
-    async function openMenu(): Promise<void> {
-        try {
-            const { default: bcast } = await import('@windy/broadcast');
-            bcast.emit('rqstOpen', 'menu');
-        } catch {
-            // broadcast indisponible, le bouton back ne fait rien
-        }
+    function openMenu(): void {
+        bcast.emit('rqstOpen', 'menu');
     }
 
     // UI state
@@ -223,7 +221,9 @@
                 },
             });
 
-            if (result.tileCount > 0) {
+            // Pack créé uniquement si le téléchargement n'a pas été annulé
+            // et qu'au moins une tile a été récupérée.
+            if (!result.aborted && result.tileCount > 0) {
                 const pack: Pack = {
                     id: packId,
                     name: `${model.toUpperCase()} ${formatDate(new Date())}`,
@@ -242,17 +242,15 @@
                 loadPacks();
             }
 
-            if (result.errors.length > 0) {
-                errorMsg = `${result.tileCount}/${result.total} tiles ok, ${result.errors.length} erreurs.`;
+            if (result.aborted) {
+                errorMsg = 'Téléchargement annulé.';
+            } else if (result.errors.length > 0) {
+                errorMsg = `${result.tileCount}/${result.total} tiles ok, ${result.errors.length} erreur(s).`;
             } else {
                 errorMsg = '';
             }
         } catch (e) {
-            if (abortController?.signal.aborted) {
-                errorMsg = 'Téléchargement annulé.';
-            } else {
-                errorMsg = `Erreur: ${e}`;
-            }
+            errorMsg = `Erreur: ${e}`;
         } finally {
             downloading = false;
             abortController = null;
@@ -326,49 +324,18 @@
 
 
 
-    onMount(async () => {
-        // Détecter la carte — desktop (window.W.map) ou Android (global W.map via plugin)
-        // Fallback : Leaflet global récupéré depuis le DOM
-        try {
-            map = (typeof (window as any).W !== 'undefined' && (window as any).W.map) ? (window as any).W.map : null;
-            if (!map) {
-                // Fallback Leaflet : cherche l'instance dans le DOM
-                const container = document.querySelector('.leaflet-container') as any;
-                map = container?._leaflet_map ?? null;
-            }
-            mapAvailable = map !== null;
-            mapDetectionAttempted = true;
-            if (!mapAvailable) {
-                console.warn('[Windy Offline] Map detection failed — window.W.map not found, no Leaflet container in DOM');
-            }
-        } catch (e) {
-            mapAvailable = false;
-            mapDetectionAttempted = true;
-            console.warn('[Windy Offline] Map detection error:', e);
-        }
-
-        // Mobile: le conteneur <section> fixed parent est dans l'ordre DOM
-        // AVANT la progress bar et a pointer-events: none. Il faut modifier
-        // CE parent (pas le noeud enfant), le déplacer en fin de body,
-        // et forcer z-index + pointer-events.
-        const pluginEl = document.getElementById('plugin');
-        if (pluginEl) {
-            // Remonter jusqu'au conteneur fixed (le <section> parent)
-            let container: HTMLElement | null = pluginEl.parentElement;
-            while (container && container !== document.body) {
-                const style = window.getComputedStyle(container);
-                if (style.position === 'fixed') break;
-                container = container.parentElement;
-            }
-            if (container) {
-                container.style.zIndex = '2147483647';
-                container.style.pointerEvents = 'auto';
-                document.body.appendChild(container);
-            }
-        }
-
+    onMount(() => {
         install();
         loadPacks();
+
+        // La carte Windy (Leaflet-GL) est disponible via @windy/map.
+        // whenMapInitialized garantit qu'elle est prête (desktop, mobile, Android).
+        whenMapInitialized(() => {
+            mapAvailable = !!map;
+            if (!mapAvailable) {
+                console.warn('[Windy Offline] map indisponible après initialisation');
+            }
+        });
     });
 
     onDestroy(() => {
@@ -379,90 +346,54 @@
 
 <style lang="less">
     .plugin__content {
-        padding: 12px;
+        padding: 14px;
     }
+    .intro {
+        font-size: 0.8em;
+        line-height: 1.5;
+        color: var(--color-text-secondary, #999);
+        margin: 0 0 14px;
+    }
+
     .tabs {
         display: flex;
         gap: 4px;
-        margin-bottom: 12px;
+        padding: 4px;
+        margin-bottom: 16px;
+        background-color: var(--color-background-secondary, rgba(255, 255, 255, 0.05));
+        border-radius: 10px;
     }
     .tab {
         flex: 1;
-        padding: 6px 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 0;
         border: none;
-        background: rgba(255, 255, 255, 0.05);
-        color: #aaa;
+        background: transparent;
+        color: var(--color-text-primary, #aaa);
         cursor: pointer;
-        font-size: 0.9em;
-        border-radius: 4px;
+        font-size: 0.88em;
+        border-radius: 7px;
+        transition: background 0.15s, color 0.15s;
     }
     .tab.active {
-        background: rgba(255, 255, 255, 0.1);
-        color: #fff;
+        background-color: var(--color-ui-primary, rgba(255, 255, 255, 0.12));
+        color: var(--color-white, #fff);
+        font-weight: 600;
     }
-    .actions {
-        display: flex;
-        gap: 6px;
-        margin-bottom: 8px;
-        flex-wrap: wrap;
+    .tab__count {
+        min-width: 18px;
+        padding: 0 5px;
+        font-size: 0.82em;
+        line-height: 18px;
+        border-radius: 9px;
+        background-color: var(--color-orange, #d49500);
+        color: var(--color-white, #fff);
+        font-weight: 700;
     }
-    .btn {
-        padding: 6px 12px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        background: transparent;
-        color: #fff;
-        cursor: pointer;
-        border-radius: 4px;
-        font-size: 0.85em;
+    .tab.active .tab__count {
+        background-color: rgba(0, 0, 0, 0.25);
     }
-    .btn.green {
-        border-color: #4caf50;
-        color: #4caf50;
-    }
-    .btn.orange {
-        border-color: #ff9800;
-        color: #ff9800;
-    }
-    .btn.red {
-        border-color: #f44336;
-        color: #f44336;
-    }
-    .btn:disabled {
-        opacity: 0.4;
-        cursor: not-allowed;
-    }
-    select {
-        padding: 6px 8px;
-        background: rgba(255, 255, 255, 0.05);
-        color: #fff;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
-        font-size: 0.85em;
-        width: 100%;
-        margin-bottom: 8px;
-    }
-    .progress-bar {
-        width: 100%;
-        height: 4px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 2px;
-        margin: 8px 0;
-        overflow: hidden;
-    }
-    .progress-fill {
-        height: 100%;
-        background: #4caf50;
-        transition: width 0.3s;
-    }
-    .info {
-        font-size: 0.8em;
-        color: #aaa;
-        margin-bottom: 8px;
-    }
-    .error {
-        font-size: 0.8em;
-        color: #f44336;
-        margin-top: 4px;
-    }
-
 </style>
