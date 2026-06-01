@@ -347,6 +347,17 @@
             console.warn('[Windy Offline] Map detection error:', e);
         }
 
+        // Mobile: le conteneur du plugin est sous la progress bar dans l'ordre DOM
+        // → forcer z-index sur le parent section (fixed; bottom:0) pour passer au-dessus
+        const pluginNode = document.getElementById('plugin');
+        if (pluginNode) {
+            const mobileContainer = pluginNode.parentElement;
+            if (mobileContainer && window.getComputedStyle(mobileContainer).position === 'fixed') {
+                mobileContainer.style.zIndex = '2000';
+                mobileContainer.style.pointerEvents = 'auto';
+            }
+        }
+
         install();
         loadPacks();
     });
@@ -358,12 +369,6 @@
 </script>
 
 <style lang="less">
-    /* z-index élevé pour passer au-dessus du slider timestamp natif Windy en mobile */
-    :global(#plugin) {
-        z-index: 2000 !important;
-        position: relative;
-    }
-
     .plugin__content {
         padding: 12px;
     }
