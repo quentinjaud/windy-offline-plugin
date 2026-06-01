@@ -65,14 +65,14 @@
 
         {#if mapAvailable}
             <div class="row">
-                <button class="button button--variant-clear" on:click={ () => dispatch('startDraw') } class:is-active={ drawing }>
+                <button class="wbtn wbtn--ghost" class:is-active={ drawing } on:click={ () => dispatch('startDraw') }>
                     ✏️ Rectangle
                 </button>
-                <button class="button button--variant-clear" on:click={ () => dispatch('screenZone') }>
+                <button class="wbtn wbtn--ghost" on:click={ () => dispatch('screenZone') }>
                     📺 Zone écran
                 </button>
                 {#if drawing || rectBounds}
-                    <button class="button button--variant-clear icon-only" title="Effacer" on:click={ () => dispatch('cancelDraw') }>
+                    <button class="wbtn wbtn--ghost icon-only" title="Effacer" on:click={ () => dispatch('cancelDraw') }>
                         ✖
                     </button>
                 {/if}
@@ -80,7 +80,7 @@
         {/if}
 
         <button
-            class="button button--variant-orange full"
+            class="wbtn full"
             on:click={ () => dispatch('startDownload') }
             disabled={ !rectBounds || !mapAvailable }
         >
@@ -94,7 +94,7 @@
             </div>
             <div class="progress__bar"><div class="progress__fill" style="width:{pct}%"></div></div>
             <div class="progress__count">{progress.downloaded} / {progress.total} tiles</div>
-            <button class="button button--variant-clear full" on:click={ () => dispatch('cancelDownload') }>
+            <button class="wbtn wbtn--ghost full" on:click={ () => dispatch('cancelDownload') }>
                 ✖ Annuler
             </button>
         </div>
@@ -112,23 +112,67 @@
         gap: 12px;
     }
 
+    /* Bouton-pilule, calqué sur le .button natif Windy et piloté par ses variables */
+    .wbtn {
+        cursor: pointer;
+        appearance: none;
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 0;
+        border-radius: 2em;
+        padding: 0.5em 1.1em;
+        font-size: 0.85em;
+        font-weight: 400;
+        line-height: normal;
+        color: var(--color-white, #f8f8f8);
+        background-color: var(--color-ui-primary, #9d0300);
+        transition: filter 0.15s, background 0.15s;
+    }
+    .wbtn:hover:not(:disabled) {
+        filter: brightness(1.12);
+    }
+    .wbtn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    .wbtn--ghost {
+        background-color: transparent;
+        color: var(--color-text-primary, #ccc);
+        border: 1px solid var(--color-border, rgba(255, 255, 255, 0.2));
+    }
+    .wbtn--ghost:hover:not(:disabled) {
+        filter: none;
+        border-color: var(--color-border-selected, var(--color-orange, #d49500));
+        color: var(--color-text-secondary, #fff);
+    }
+    .wbtn.is-active {
+        border-color: var(--color-border-selected, var(--color-orange, #d49500));
+        color: var(--color-border-selected, var(--color-orange, #d49500));
+    }
+    .full {
+        width: 100%;
+    }
+
     .field {
         display: flex;
         flex-direction: column;
         gap: 4px;
     }
     .field__label {
-        font-size: 0.75em;
+        font-size: 0.72em;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        opacity: 0.6;
+        color: var(--color-text-secondary, #999);
     }
     select {
         width: 100%;
         padding: 8px 10px;
-        background: rgba(255, 255, 255, 0.06);
-        color: inherit;
-        border: 1px solid rgba(255, 255, 255, 0.14);
+        background-color: var(--color-background-secondary, rgba(255, 255, 255, 0.06));
+        color: var(--color-text-primary, inherit);
+        border: 1px solid var(--color-border, rgba(255, 255, 255, 0.14));
         border-radius: 8px;
         font-size: 0.9em;
         cursor: pointer;
@@ -136,55 +180,49 @@
 
     .zone {
         padding: 12px;
-        border: 1px dashed rgba(255, 255, 255, 0.2);
+        border: 1px dashed var(--color-border, rgba(255, 255, 255, 0.2));
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.03);
+        background-color: var(--color-background-secondary, rgba(255, 255, 255, 0.03));
     }
     .zone--set {
         border-style: solid;
-        border-color: rgba(255, 152, 0, 0.5);
-        background: rgba(255, 152, 0, 0.08);
+        border-color: var(--color-border-selected, var(--color-orange, #d49500));
     }
     .zone__title {
         font-weight: 600;
         font-size: 0.9em;
         margin-bottom: 4px;
+        color: var(--color-text-secondary, #fff);
     }
     .zone__coords {
         font-size: 0.78em;
-        opacity: 0.8;
+        color: var(--color-text-primary, #bbb);
     }
     .zone__estimate {
         font-size: 0.78em;
-        opacity: 0.6;
+        color: var(--color-text-secondary, #999);
         margin-top: 4px;
     }
     .zone__hint {
         font-size: 0.82em;
-        opacity: 0.7;
+        color: var(--color-text-primary, #aaa);
         text-align: center;
     }
     .zone__hint--warn {
-        color: #ff9800;
-        opacity: 1;
+        color: var(--color-error, #c42f2f);
     }
 
     .row {
         display: flex;
         gap: 8px;
     }
-    .row .button {
+    .row .wbtn {
         flex: 1;
     }
     .row .icon-only {
         flex: 0 0 auto;
-        min-width: 38px;
-    }
-    .button.is-active {
-        outline: 2px solid rgba(255, 152, 0, 0.7);
-    }
-    .full {
-        width: 100%;
+        min-width: 40px;
+        padding: 0.5em;
     }
 
     .progress {
@@ -197,32 +235,33 @@
         display: flex;
         justify-content: space-between;
         font-size: 0.85em;
+        color: var(--color-text-secondary, #fff);
     }
     .progress__pct {
         font-weight: 600;
     }
     .progress__bar {
         height: 6px;
-        background: rgba(255, 255, 255, 0.1);
+        background-color: var(--color-border, rgba(255, 255, 255, 0.1));
         border-radius: 3px;
         overflow: hidden;
     }
     .progress__fill {
         height: 100%;
-        background: linear-gradient(90deg, #ffb300, #ff9800);
+        background-color: var(--color-ui-primary, #d49500);
         transition: width 0.3s ease;
     }
     .progress__count {
         font-size: 0.78em;
-        opacity: 0.6;
+        color: var(--color-text-secondary, #999);
         text-align: center;
     }
 
     .msg {
         font-size: 0.8em;
-        color: #ff9800;
+        color: var(--color-error, #c42f2f);
         padding: 8px 10px;
-        background: rgba(255, 152, 0, 0.1);
+        border: 1px solid var(--color-error, #c42f2f);
         border-radius: 8px;
     }
 </style>

@@ -351,7 +351,7 @@
     .intro {
         font-size: 0.8em;
         line-height: 1.5;
-        opacity: 0.65;
+        color: var(--color-text-secondary, #999);
         margin: 0 0 14px;
     }
 
@@ -360,7 +360,7 @@
         gap: 4px;
         padding: 4px;
         margin-bottom: 16px;
-        background: rgba(255, 255, 255, 0.05);
+        background-color: var(--color-background-secondary, rgba(255, 255, 255, 0.05));
         border-radius: 10px;
     }
     .tab {
@@ -372,19 +372,15 @@
         padding: 8px 0;
         border: none;
         background: transparent;
-        color: inherit;
-        opacity: 0.6;
+        color: var(--color-text-primary, #aaa);
         cursor: pointer;
         font-size: 0.88em;
         border-radius: 7px;
-        transition: background 0.15s, opacity 0.15s;
-    }
-    .tab:hover {
-        opacity: 0.85;
+        transition: background 0.15s, color 0.15s;
     }
     .tab.active {
-        background: rgba(255, 255, 255, 0.12);
-        opacity: 1;
+        background-color: var(--color-ui-primary, rgba(255, 255, 255, 0.12));
+        color: var(--color-white, #fff);
         font-weight: 600;
     }
     .tab__count {
@@ -393,8 +389,11 @@
         font-size: 0.82em;
         line-height: 18px;
         border-radius: 9px;
-        background: #ff9800;
-        color: #000;
+        background-color: var(--color-orange, #d49500);
+        color: var(--color-white, #fff);
         font-weight: 700;
+    }
+    .tab.active .tab__count {
+        background-color: rgba(0, 0, 0, 0.25);
     }
 </style>

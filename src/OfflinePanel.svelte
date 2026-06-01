@@ -46,15 +46,15 @@
                     </div>
                     <div class="pack__actions">
                         {#if pack.id === activePackId}
-                            <button class="button button--variant-orange" on:click={ () => dispatch('deactivatePack') }>
+                            <button class="wbtn" on:click={ () => dispatch('deactivatePack') }>
                                 ⏸ Désactiver
                             </button>
                         {:else}
-                            <button class="button button--variant-clear" on:click={ () => dispatch('activatePack', pack.id) }>
+                            <button class="wbtn wbtn--ghost" on:click={ () => dispatch('activatePack', pack.id) }>
                                 ▶ Activer
                             </button>
                         {/if}
-                        <button class="button button--variant-clear icon-only" title="Supprimer" on:click={ () => dispatch('deletePack', pack.id) }>
+                        <button class="wbtn wbtn--ghost icon-only" title="Supprimer" on:click={ () => dispatch('deletePack', pack.id) }>
                             🗑
                         </button>
                     </div>
@@ -71,10 +71,43 @@
         gap: 10px;
     }
 
+    /* Bouton-pilule calqué sur le .button natif Windy */
+    .wbtn {
+        cursor: pointer;
+        appearance: none;
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 0;
+        border-radius: 2em;
+        padding: 0.5em 1.1em;
+        font-size: 0.82em;
+        font-weight: 400;
+        line-height: normal;
+        color: var(--color-white, #f8f8f8);
+        background-color: var(--color-ui-primary, #9d0300);
+        transition: filter 0.15s, border-color 0.15s;
+    }
+    .wbtn:hover {
+        filter: brightness(1.12);
+    }
+    .wbtn--ghost {
+        background-color: transparent;
+        color: var(--color-text-primary, #ccc);
+        border: 1px solid var(--color-border, rgba(255, 255, 255, 0.2));
+    }
+    .wbtn--ghost:hover {
+        filter: none;
+        border-color: var(--color-border-selected, var(--color-orange, #d49500));
+        color: var(--color-text-secondary, #fff);
+    }
+
     .empty {
         text-align: center;
         padding: 32px 16px;
-        opacity: 0.8;
+        color: var(--color-text-primary, #aaa);
     }
     .empty__icon {
         font-size: 2.4em;
@@ -83,10 +116,11 @@
     .empty__title {
         font-weight: 600;
         margin: 0 0 4px;
+        color: var(--color-text-secondary, #fff);
     }
     .empty__hint {
         font-size: 0.82em;
-        opacity: 0.6;
+        color: var(--color-text-secondary, #888);
         margin: 0;
         line-height: 1.5;
     }
@@ -95,7 +129,7 @@
         display: flex;
         justify-content: space-between;
         font-size: 0.82em;
-        opacity: 0.7;
+        color: var(--color-text-secondary, #999);
         padding: 0 2px;
     }
     .summary__size {
@@ -105,8 +139,8 @@
     .banner {
         font-size: 0.8em;
         padding: 8px 10px;
-        background: rgba(76, 175, 80, 0.12);
-        border: 1px solid rgba(76, 175, 80, 0.35);
+        color: var(--color-ok, #00a316);
+        border: 1px solid var(--color-ok, #00a316);
         border-radius: 8px;
     }
 
@@ -120,13 +154,12 @@
     }
     .pack {
         padding: 10px 12px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid var(--color-border, rgba(255, 255, 255, 0.12));
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.03);
+        background-color: var(--color-background-secondary, rgba(255, 255, 255, 0.03));
     }
     .pack--active {
-        border-color: rgba(255, 152, 0, 0.6);
-        background: rgba(255, 152, 0, 0.08);
+        border-color: var(--color-border-selected, var(--color-orange, #d49500));
     }
     .pack__head {
         display: flex;
@@ -137,18 +170,20 @@
     .pack__name {
         font-weight: 600;
         font-size: 0.9em;
+        color: var(--color-text-secondary, #fff);
     }
     .pack__badge {
         font-size: 0.68em;
         padding: 2px 7px;
         border-radius: 10px;
-        background: rgba(255, 255, 255, 0.12);
+        background-color: var(--color-ui-primary, rgba(255, 255, 255, 0.12));
+        color: var(--color-white, #fff);
         letter-spacing: 0.04em;
         white-space: nowrap;
     }
     .pack__meta {
         font-size: 0.75em;
-        opacity: 0.6;
+        color: var(--color-text-secondary, #999);
         margin-top: 3px;
     }
     .pack__actions {
@@ -156,11 +191,12 @@
         gap: 8px;
         margin-top: 10px;
     }
-    .pack__actions .button {
+    .pack__actions .wbtn {
         flex: 1;
     }
     .pack__actions .icon-only {
         flex: 0 0 auto;
-        min-width: 38px;
+        min-width: 40px;
+        padding: 0.5em;
     }
 </style>
