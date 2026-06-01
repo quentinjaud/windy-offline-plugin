@@ -9,7 +9,9 @@
         "build:win": "rmdir /s /q dist && mkdir dist && set SERVE=false && rollup -c && copy package.json dist\\",
         "start": "rollup -w -c",
         "test": "vitest run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "test:e2e": "playwright test",
+        "test:e2e:mobile": "playwright test --project=mobile"
     },
     "repository": {
         "type": "git",
