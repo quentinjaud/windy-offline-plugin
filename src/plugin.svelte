@@ -51,7 +51,7 @@
     import { onDestroy, onMount } from 'svelte';
 
     import bcast from '@windy/broadcast';
-    import { map, whenMapInitialized } from '@windy/map';
+    import { map as windyMap, whenMapInitialized } from '@windy/map';
 
     import DownloadPanel from './DownloadPanel.svelte';
     import OfflinePanel from './OfflinePanel.svelte';
@@ -68,7 +68,27 @@
     import { getMaxHours } from './lib/models';
 
     declare const L: any;
+    declare const W: any; // Windy expose la carte globalement sur mobile/Android
+
     let mapAvailable = false;
+
+    // Instance Leaflet résolue. Sur desktop, @windy/map.map est dispo ; sur
+    // mobile il est null, il faut alors la récupérer via le global W ou le DOM.
+    let map: any = null;
+    let mapPollId: ReturnType<typeof setInterval> | null = null;
+
+    /** Résout l'instance Leaflet : @windy/map (desktop) puis fallbacks mobile. */
+    function resolveMap(): any {
+        if (windyMap) return windyMap;
+        if (typeof W !== 'undefined' && W?.map) return W.map;
+        const container = document.querySelector('.leaflet-container') as any;
+        return container?._leaflet_map ?? null;
+    }
+
+    /** Résout la carte si ce n'est pas déjà fait (idempotent). */
+    function ensureMap(): void {
+        if (!map) map = resolveMap();
+    }
 
     const { title } = config;
 
@@ -117,6 +137,7 @@
     }
 
     function startDrawing(): void {
+        ensureMap();
         if (!map) { console.warn('[Windy Offline] startDrawing: map not detected'); return; }
         drawing = true;
         rectBounds = null;
@@ -175,6 +196,7 @@
     }
 
     async function useScreenZone(): Promise<void> {
+        ensureMap();
         if (!map) { console.warn('[Windy Offline] useScreenZone: map not detected'); return; }
         const bounds = map.getBounds();
         rectBounds = {
@@ -286,18 +308,38 @@
         install();
         loadPacks();
 
-        // La carte Windy (Leaflet-GL) est disponible via @windy/map.
-        // whenMapInitialized garantit qu'elle est prête (desktop, mobile, Android).
+        // Desktop : @windy/map fournit la carte ; whenMapInitialized garantit
+        // qu'elle est prête. Mobile/Android : @windy/map.map est null, on la
+        // résout via le global W ou le conteneur Leaflet du DOM (resolveMap).
+        ensureMap();
+        mapAvailable = !!map;
+
         whenMapInitialized(() => {
+            ensureMap();
             mapAvailable = !!map;
-            if (!mapAvailable) {
-                console.warn('[Windy Offline] map indisponible après initialisation');
-            }
         });
+
+        // Fallback mobile : la carte peut n'apparaître dans le DOM qu'après le
+        // montage du plugin. On réessaie quelques fois avant d'abandonner.
+        if (!mapAvailable) {
+            let tries = 0;
+            mapPollId = setInterval(() => {
+                ensureMap();
+                if (map || ++tries >= 10) {
+                    mapAvailable = !!map;
+                    if (mapPollId) clearInterval(mapPollId);
+                    mapPollId = null;
+                    if (!mapAvailable) {
+                        console.warn('[Windy Offline] map indisponible après initialisation');
+                    }
+                }
+            }, 300);
+        }
     });
 
     onDestroy(() => {
         uninstall();
+        if (mapPollId) clearInterval(mapPollId);
         if (rectLayer && map) map.removeLayer(rectLayer);
     });
 </script>

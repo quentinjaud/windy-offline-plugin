@@ -66,4 +66,26 @@ test.describe('Windy Offline — UI mobile', () => {
         // Doit être l'élément topmost en son centre (donc au-dessus du timestamp).
         expect(z.ok, `panneau masqué par un autre élément: ${z.topClass}`).toBe(true);
     });
+
+    test('le bouton « Zone écran » est disponible sur mobile', async ({ page }, testInfo) => {
+        test.skip(testInfo.project.name !== 'mobile', 'Test réservé au projet mobile');
+
+        await page.goto(WINDY_URL, { waitUntil: 'domcontentloaded', timeout: 40000 });
+
+        const panel = page.locator('.plugin__content').first();
+        try {
+            await panel.waitFor({ state: 'visible', timeout: 25000 });
+        } catch {
+            test.skip(true, 'Panneau non monté en headless — prérequis npm start + session Windy');
+            return;
+        }
+
+        // Régression mobile : la carte doit être détectée (resolveMap : @windy/map
+        // → global W → DOM .leaflet-container), donc « Zone écran » doit s'afficher
+        // et l'avertissement « Carte non détectée » ne doit pas apparaître.
+        const screenZoneBtn = page.locator('text=Zone écran').first();
+        await expect(screenZoneBtn, '« Zone écran » introuvable — carte non détectée sur mobile')
+            .toBeVisible({ timeout: 5000 });
+        await expect(page.locator('text=Carte non détectée')).toHaveCount(0);
+    });
 });
