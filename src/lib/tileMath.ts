@@ -69,10 +69,9 @@ export function bboxToTiles(bbox: BBox, z: number): TileCoord[] {
 
 /**
  * Retourne les niveaux de zoom pertinents pour une zone.
- * Par défaut : du zoom 5 au zoom 10 (résolution suffisante pour météo).
+ * Plus la zone est petite, plus on monte en résolution.
  */
-export function getZoomLevels(bbox: BBox, minZ = 5, maxZ = 10): number[] {
-    // Une petite bbox mérite des zooms plus élevés
+export function getZoomLevels(bbox: BBox): number[] {
     const latSpan = bbox.n - bbox.s;
     if (latSpan < 1) return [6, 7, 8, 9, 10, 11];
     if (latSpan < 5) return [5, 6, 7, 8, 9, 10];

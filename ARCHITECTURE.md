@@ -118,7 +118,7 @@ Pack {
 
 #### UI (plugin.svelte)
 
-- `desktopUI: 'rhpane'`, `mobileUI: 'small'`
+- `desktopUI: 'rhpane'`, `mobileUI: 'fullscreen'`
 - Mode Download : sélecteurs, rectangle, progression
 - Mode Offline : liste des packs, toggle activation
 - Rectangle via Leaflet `L.rectangle` ou plugin draw

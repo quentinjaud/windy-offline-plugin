@@ -46,9 +46,11 @@ export interface DownloadOptions {
 }
 
 export interface DownloadResult {
-    tileCount: number;
+    tileCount: number;  // tiles effectivement en cache
+    total: number;      // tiles visées (dénominateur de progression)
     totalSize: number;
     errors: string[];
+    aborted: boolean;
 }
 
 /**
@@ -75,6 +77,7 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
     const total = allTiles.length;
     let downloaded = 0;
     let totalSize = 0;
+    let aborted = false;
     const errors: string[] = [];
 
     opts.onProgress?.(0, total);
@@ -84,7 +87,7 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
 
         // Vérifier l'annulation
         if (opts.signal?.aborted) {
-            errors.push('Téléchargement annulé');
+            aborted = true;
             break;
         }
 
@@ -110,7 +113,7 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
 
             const json = await response.json();
             const body = JSON.stringify(json);
-            const size = body.length;
+            const size = new Blob([body]).size;
 
             await putCacheEntry({
                 url: cacheKey,
@@ -135,7 +138,7 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
         }
     }
 
-    return { tileCount: downloaded, totalSize, errors };
+    return { tileCount: downloaded, total, totalSize, errors, aborted };
 }
 
 function buildCitytileUrl(model: string, tile: TileCoord, refTime: string, hours: number, step: number, token?: string | null): string {

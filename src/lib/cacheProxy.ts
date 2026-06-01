@@ -104,7 +104,7 @@ async function captureResponse(cacheKey: string, response: Response, packId: str
         const cloned = response.clone();
         const json = await cloned.json();
 
-        const size = JSON.stringify(json).length;
+        const size = new Blob([JSON.stringify(json)]).size;
 
         await putCacheEntry({
             url: cacheKey,
