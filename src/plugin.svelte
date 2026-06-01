@@ -347,21 +347,24 @@
             console.warn('[Windy Offline] Map detection error:', e);
         }
 
-        // Mobile: le conteneur du plugin (fixed; bottom:0) est dans l'ordre DOM
-        // AVANT la progress bar → même z-index ne suffit pas. Pattern validé par
-        // Clouds Horizon Distance + SoarCalc : utiliser @windy/plugins pour récupérer
-        // le noeud, le déplacer en fin de body, et forcer z-index + pointer-events.
-        try {
-            const { default: plugins } = await import('@windy/plugins');
-            const thisPlugin = (plugins as any)['windy-plugin-offline'];
-            if (thisPlugin?.window?.node) {
-                const node = thisPlugin.window.node as HTMLElement;
-                node.style.zIndex = '2147483647';
-                node.style.pointerEvents = 'auto';
-                document.body.appendChild(node);
+        // Mobile: le conteneur <section> fixed parent est dans l'ordre DOM
+        // AVANT la progress bar et a pointer-events: none. Il faut modifier
+        // CE parent (pas le noeud enfant), le déplacer en fin de body,
+        // et forcer z-index + pointer-events.
+        const pluginEl = document.getElementById('plugin');
+        if (pluginEl) {
+            // Remonter jusqu'au conteneur fixed (le <section> parent)
+            let container: HTMLElement | null = pluginEl.parentElement;
+            while (container && container !== document.body) {
+                const style = window.getComputedStyle(container);
+                if (style.position === 'fixed') break;
+                container = container.parentElement;
             }
-        } catch {
-            // @windy/plugins indisponible (desktop rhpane) — pas nécessaire
+            if (container) {
+                container.style.zIndex = '2147483647';
+                container.style.pointerEvents = 'auto';
+                document.body.appendChild(container);
+            }
         }
 
         install();
