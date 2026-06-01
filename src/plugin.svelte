@@ -347,14 +347,19 @@
             console.warn('[Windy Offline] Map detection error:', e);
         }
 
-        // Mobile: le conteneur du plugin est sous la progress bar dans l'ordre DOM
-        // → forcer z-index sur le parent section (fixed; bottom:0) pour passer au-dessus
+        // Mobile: le conteneur du plugin est dans l'ordre DOM AVANT la progress bar,
+        // donc même avec z-index il reste en dessous. Solution Windy officielle :
+        // déplacer le noeud dans [data-plugin="bottom-below-controls-mobile"]
+        // et appliquer la classe plugin-mobile-bottom-small.
         const pluginNode = document.getElementById('plugin');
         if (pluginNode) {
-            const mobileContainer = pluginNode.parentElement;
-            if (mobileContainer && window.getComputedStyle(mobileContainer).position === 'fixed') {
-                mobileContainer.style.zIndex = '2000';
-                mobileContainer.style.pointerEvents = 'auto';
+            const container = pluginNode.parentElement;
+            if (container && window.getComputedStyle(container).position === 'fixed') {
+                const mobileSlot = document.querySelector('[data-plugin="bottom-below-controls-mobile"]');
+                if (mobileSlot) {
+                    mobileSlot.appendChild(container);
+                    container.classList.add('plugin-mobile-bottom-small');
+                }
             }
         }
 
