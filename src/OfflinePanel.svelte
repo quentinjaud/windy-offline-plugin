@@ -71,39 +71,7 @@
         gap: 10px;
     }
 
-    /* Bouton-pilule calqué sur le .button natif Windy */
-    .wbtn {
-        cursor: pointer;
-        appearance: none;
-        box-sizing: border-box;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        border: 0;
-        border-radius: 2em;
-        padding: 0.5em 1.1em;
-        font-size: 0.82em;
-        font-weight: 400;
-        line-height: normal;
-        color: var(--color-white, #f8f8f8);
-        background-color: var(--color-ui-primary, #9d0300);
-        transition: filter 0.15s, border-color 0.15s;
-    }
-    .wbtn:hover {
-        filter: brightness(1.12);
-    }
-    .wbtn--ghost {
-        background-color: transparent;
-        color: var(--color-text-primary, #ccc);
-        border: 1px solid var(--color-border, rgba(255, 255, 255, 0.2));
-    }
-    .wbtn--ghost:hover {
-        filter: none;
-        border-color: var(--color-border-selected, var(--color-orange, #d49500));
-        color: var(--color-text-secondary, #fff);
-    }
-
+    /* Styles de base .wbtn / .wbtn--ghost définis globalement dans plugin.svelte */
     .empty {
         text-align: center;
         padding: 32px 16px;
