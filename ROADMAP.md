@@ -132,7 +132,7 @@ suggère fortement que oui.
 | ID | Tâche | Est. | Dépend | Statut |
 |----|-------|------|--------|--------|
 | **P2-1** | Gestion quota IndexedDB (QuotaExceeded → message UI, éviction). Actuellement l'erreur est avalée en silence [cacheProxy.ts:116](src/lib/cacheProxy.ts#L116). | 1 j | — | ⬜ TODO |
-| **P2-2** | Tests unitaires `cacheProxy` + `downloadManager` (toujours non testés en unitaire ; seuls urlUtils/config/tileMath/models/storage le sont). | 1 j | — | ⬜ TODO |
+| **P2-2** | Tests unitaires `cacheProxy` + `downloadManager`. | 1 j | — | ✅ DONE — [downloadManager.test.ts](tests/downloadManager.test.ts) (via P1-4) + [cacheProxy.test.ts](tests/cacheProxy.test.ts) (pass-through, capture online, token/params, service offline hit/miss, ref-counting install/uninstall). |
 | **P2-3** | Perf `getCacheSize` (total courant vs `getAll` [storage.ts:105](src/lib/storage.ts#L105)) + borner/retirer la capture passive `__uncaptured__` toujours active [cacheProxy.ts:114](src/lib/cacheProxy.ts#L114) + MAJ [ARCHITECTURE.md](./ARCHITECTURE.md) (phase réelle). | 0,5 j | — | ⬜ TODO |
 
 ---
