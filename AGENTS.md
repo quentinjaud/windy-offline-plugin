@@ -31,3 +31,14 @@ URL de cache = URL normalisée (strip params volatils).
 - Tests avec Vitest
 - Commit messages en français
 - Pas de config.yaml à modifier (plugin auto-contenu)
+
+## Travail en cours & coopération multi-agents
+
+- **[ROADMAP.md](./ROADMAP.md) est la source de vérité de l'état du chantier.** Avant de
+  commencer, lis-le : choisis une tâche `TODO` (en respectant les dépendances et le GATE
+  Phase A), marque-la `🚧 WIP @ton-nom + date`, puis implémente.
+- **Journalisation via commits :** chaque commit qui fait avancer une tâche référence son
+  ID entre crochets — `<type>(<zone>): <description fr> [<ID>]`, ex.
+  `feat(packState): persiste activePackId [P0-C]`. Le `git log` devient ainsi le journal
+  par tâche (`git log --grep="\[P0-C\]"`).
+- **Ne marque `✅ DONE`** dans ROADMAP.md qu'avec `npm test` vert.
