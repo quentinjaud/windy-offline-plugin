@@ -19,6 +19,9 @@ export interface DownloadOptions {
     packId: string;      // ID du pack à créer
     signal?: AbortSignal; // pour annulation
     onProgress?: (downloaded: number, total: number) => void;
+    concurrency?: number; // requêtes simultanées (défaut: 4)
+    maxRetries?: number;  // tentatives sur erreur transitoire (défaut: 3)
+    retryBaseMs?: number; // base du backoff exponentiel (défaut: 500ms)
 }
 
 export interface DownloadResult {
@@ -29,15 +32,27 @@ export interface DownloadResult {
     aborted: boolean;
 }
 
+const DEFAULT_CONCURRENCY = 4;
+const DEFAULT_MAX_RETRIES = 3;
+const DEFAULT_RETRY_BASE_MS = 500;
+
 /**
  * Télécharge toutes les tiles citytile pour les paramètres donnés.
- * Respecte un rate limit de 3 req/s.
+ *
+ * Parallélise via un pool borné (`concurrency`) et réessaie les erreurs
+ * transitoires (429, 5xx, erreurs réseau) avec un backoff exponentiel. Les
+ * erreurs permanentes (4xx hors 429, ex. 400 paramètres invalides) ne sont
+ * pas réessayées. Pas de délai fixe : la concurrence + le backoff adaptatif
+ * sur 429 régulent naturellement le débit.
  */
 export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResult> {
     const hours = opts.hours ?? 68;
     const step = opts.step ?? 1;
     const maxZoom = getMaxZoom(opts.model);
     const zoomLevels = (opts.zoomLevels ?? getZoomLevels(opts.bbox)).filter(z => z <= maxZoom);
+    const concurrency = Math.max(1, opts.concurrency ?? DEFAULT_CONCURRENCY);
+    const maxRetries = opts.maxRetries ?? DEFAULT_MAX_RETRIES;
+    const retryBaseMs = opts.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
 
     // Générer toutes les tiles avec le token d'auth
     const token = getCapturedToken();
@@ -53,68 +68,88 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
     const total = allTiles.length;
     let downloaded = 0;
     let totalSize = 0;
+    let completed = 0;
     let aborted = false;
     const errors: string[] = [];
+    const originalFetch = getOriginalFetch();
 
     opts.onProgress?.(0, total);
 
-    for (let i = 0; i < allTiles.length; i++) {
-        const { url } = allTiles[i];
+    let next = 0;
+    async function worker(): Promise<void> {
+        while (true) {
+            if (opts.signal?.aborted) { aborted = true; return; }
+            const i = next++;
+            if (i >= allTiles.length) return;
 
-        // Vérifier l'annulation
-        if (opts.signal?.aborted) {
-            aborted = true;
-            break;
-        }
+            const { url } = allTiles[i];
+            const cacheKey = normalizeUrl(url);
 
-        const cacheKey = normalizeUrl(url);
-
-        // Déduplication : sauter si déjà en cache
-        const existing = await getCacheEntry(cacheKey);
-        if (existing) {
-            downloaded++;
-            totalSize += existing.size;
-            opts.onProgress?.(i + 1, total);
-            continue;
-        }
-
-        try {
-            const originalFetch = getOriginalFetch();
-            const response = await originalFetch(url);
-
-            if (!response.ok) {
-                errors.push(`${url}: HTTP ${response.status}`);
-                continue;
+            try {
+                // Déduplication : sauter si déjà en cache
+                const existing = await getCacheEntry(cacheKey);
+                if (existing) {
+                    downloaded++;
+                    totalSize += existing.size;
+                } else {
+                    const response = await fetchWithRetry(originalFetch, url, maxRetries, retryBaseMs, opts.signal);
+                    if (!response.ok) {
+                        errors.push(`${url}: HTTP ${response.status}`);
+                    } else {
+                        const json = await response.json();
+                        const body = JSON.stringify(json);
+                        const size = new Blob([body]).size;
+                        await putCacheEntry({ url: cacheKey, json, size, createdAt: Date.now(), packId: opts.packId });
+                        totalSize += size;
+                        downloaded++;
+                    }
+                }
+            } catch (e) {
+                if (opts.signal?.aborted) { aborted = true; return; }
+                errors.push(`${url}: ${e}`);
             }
 
-            const json = await response.json();
-            const body = JSON.stringify(json);
-            const size = new Blob([body]).size;
-
-            await putCacheEntry({
-                url: cacheKey,
-                json,
-                size,
-                createdAt: Date.now(),
-                packId: opts.packId,
-            });
-
-            totalSize += size;
-            downloaded++;
-        } catch (e) {
-            errors.push(`${url}: ${e}`);
-        }
-
-        opts.onProgress?.(i + 1, total);
-
-        // Rate limiting : max 3 req/s (~333ms par requête)
-        // Sauf pour la dernière
-        if (i < allTiles.length - 1) {
-            await sleep(350);
+            completed++;
+            opts.onProgress?.(completed, total);
         }
     }
 
+    const pool = Array.from({ length: Math.min(concurrency, total) }, () => worker());
+    await Promise.all(pool);
+
     return { tileCount: downloaded, total, totalSize, errors, aborted };
+}
+
+/**
+ * Fetch avec retry/backoff exponentiel sur erreurs transitoires (429, 5xx,
+ * erreur réseau). Retourne la dernière réponse (même !ok) une fois les
+ * tentatives épuisées ; relance l'erreur réseau si toutes échouent.
+ */
+async function fetchWithRetry(
+    fetchFn: typeof window.fetch,
+    url: string,
+    maxRetries: number,
+    retryBaseMs: number,
+    signal?: AbortSignal,
+): Promise<Response> {
+    let attempt = 0;
+    while (true) {
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+        try {
+            const response = await fetchFn(url, signal ? { signal } : undefined);
+            const transient = response.status === 429 || response.status >= 500;
+            if (transient && attempt < maxRetries) {
+                attempt++;
+                await sleep(retryBaseMs * Math.pow(2, attempt - 1));
+                continue;
+            }
+            return response;
+        } catch (e) {
+            if (signal?.aborted || attempt >= maxRetries) throw e;
+            attempt++;
+            await sleep(retryBaseMs * Math.pow(2, attempt - 1));
+        }
+    }
 }
 
 function buildCitytileUrl(model: string, tile: TileCoord, refTime: string, hours: number, step: number, token?: string | null): string {

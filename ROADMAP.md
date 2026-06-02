@@ -125,7 +125,7 @@ suggère fortement que oui.
 |----|-------|------|--------|--------|
 | **P1-1+2** | Télécharger via `originalFetch` (bypass du proxy) → supprime la race `__uncaptured__` **et** l'empoisonnement par tiles vides si un pack est actif. | 0,5 j | — | ✅ DONE (v0.3.1) — `getOriginalFetch()` [cacheProxy.ts:29](src/lib/cacheProxy.ts#L29) utilisé par [downloadManager.ts:82](src/lib/downloadManager.ts#L82) |
 | **P1-3** | Aligner l'estimation de taille sur le `getZoomLevels` réel + retirer les params ignorés de `getZoomLevels`. | 0,5 j | — | ✅ DONE (v0.3.1) — estime via `getZoomLevels(bbox).filter(z<=maxZoom)` [DownloadPanel.svelte:26](src/DownloadPanel.svelte#L26), identique au download [downloadManager.ts:40](src/lib/downloadManager.ts#L40) ; params morts retirés [tileMath.ts:74](src/lib/tileMath.ts#L74). *Résidu mineur optionnel : l'heuristique 5 Ko/tile [DownloadPanel.svelte:30](src/DownloadPanel.svelte#L30) reste approximative.* |
-| **P1-4** | Paralléliser le download (concurrence 4–6) + retry/backoff sur 429/5xx (rate limit séquentiel actuel [downloadManager.ts:112](src/lib/downloadManager.ts#L112)). | 1 j | — | ⬜ TODO |
+| **P1-4** | Paralléliser le download (concurrence 4–6) + retry/backoff sur 429/5xx. | 1 j | — | ✅ DONE — pool de workers borné (`concurrency`, défaut 4) + `fetchWithRetry` (backoff exponentiel sur 429/5xx/réseau, pas de retry sur 4xx permanent) ; délai fixe supprimé (débit régulé par concurrence + backoff). Tests [downloadManager.test.ts](tests/downloadManager.test.ts). ⓘ Concurrence/rate-limit par défaut à revalider contre la vraie API (lié à A-1). |
 
 ## Phase D — Robustesse / dette
 
