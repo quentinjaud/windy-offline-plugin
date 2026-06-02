@@ -131,7 +131,7 @@ suggère fortement que oui.
 
 | ID | Tâche | Est. | Dépend | Statut |
 |----|-------|------|--------|--------|
-| **P2-1** | Gestion quota IndexedDB (QuotaExceeded → message UI, éviction). Actuellement l'erreur est avalée en silence [cacheProxy.ts:116](src/lib/cacheProxy.ts#L116). | 1 j | — | ⬜ TODO |
+| **P2-1** | Gestion quota IndexedDB (QuotaExceeded → message UI). | 1 j | — | ✅ DONE — util `isQuotaExceeded`, download stoppé proprement + flag `quotaExceeded`, message UI clair dans [plugin.svelte](src/plugin.svelte) ; cache passif déjà borné (P2-3). Tests [downloadManager.quota.test.ts](tests/downloadManager.quota.test.ts) + [storage.test.ts](tests/storage.test.ts). |
 | **P2-2** | Tests unitaires `cacheProxy` + `downloadManager`. | 1 j | — | ✅ DONE — [downloadManager.test.ts](tests/downloadManager.test.ts) (via P1-4) + [cacheProxy.test.ts](tests/cacheProxy.test.ts) (pass-through, capture online, token/params, service offline hit/miss, ref-counting install/uninstall). |
 | **P2-3** | Perf `getCacheSize` + borner la capture passive `__uncaptured__` + MAJ [ARCHITECTURE.md](./ARCHITECTURE.md). | 0,5 j | — | ✅ DONE — `getCacheSize` en curseur (mémoire O(1)), `putPassiveEntry` borne `__uncaptured__` (FIFO via index `createdAt`, `MAX_PASSIVE_ENTRIES`), `openDB` protégé contre ouvertures concurrentes, ARCHITECTURE.md resyncé. Tests [storage.test.ts](tests/storage.test.ts). |
 

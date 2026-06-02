@@ -6,6 +6,14 @@ const DB_VERSION = 1;
 /** Plafond d'entrées de capture passive (`__uncaptured__`) avant éviction FIFO. */
 export const MAX_PASSIVE_ENTRIES = 1000;
 
+/** Détecte un dépassement de quota IndexedDB (stockage plein), tous navigateurs. */
+export function isQuotaExceeded(e: unknown): boolean {
+    return (
+        e instanceof DOMException &&
+        (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED' || e.code === 22)
+    );
+}
+
 export interface CacheEntry {
     url: string;       // clé primaire = URL normalisée (sans token2, uid, poc, pr, sc)
     json: unknown;     // le JSON citytile complet

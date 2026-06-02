@@ -7,6 +7,7 @@ import {
     getCacheSize,
     countCacheEntriesByPack,
     putPassiveEntry,
+    isQuotaExceeded,
     putPack,
     getPack,
     getAllPacks,
@@ -146,6 +147,18 @@ describe('StorageEngine', () => {
             expect(await getCacheEntry('u2')).toBeDefined();
             expect(await getCacheEntry('u3')).toBeDefined();
             expect(await countCacheEntriesByPack('__uncaptured__')).toBe(2);
+        });
+    });
+
+    describe('isQuotaExceeded', () => {
+        it('reconnaît un QuotaExceededError', () => {
+            expect(isQuotaExceeded(new DOMException('plein', 'QuotaExceededError'))).toBe(true);
+        });
+
+        it('ignore les autres erreurs', () => {
+            expect(isQuotaExceeded(new DOMException('autre', 'AbortError'))).toBe(false);
+            expect(isQuotaExceeded(new Error('boom'))).toBe(false);
+            expect(isQuotaExceeded(null)).toBe(false);
         });
     });
 });

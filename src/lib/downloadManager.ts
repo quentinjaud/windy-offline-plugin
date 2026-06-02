@@ -3,7 +3,7 @@
 
 import { bboxToTiles, getZoomLevels, type BBox, type TileCoord } from './tileMath';
 import { normalizeUrl } from './urlUtils';
-import { putCacheEntry, getCacheEntry } from './storage';
+import { putCacheEntry, getCacheEntry, isQuotaExceeded } from './storage';
 import { getCapturedToken, getCapturedParams, getOriginalFetch } from './cacheProxy';
 import { getMaxZoom } from './models';
 
@@ -30,6 +30,7 @@ export interface DownloadResult {
     totalSize: number;
     errors: string[];
     aborted: boolean;
+    quotaExceeded: boolean; // stockage IndexedDB plein → download stoppé
 }
 
 const DEFAULT_CONCURRENCY = 4;
@@ -70,6 +71,7 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
     let totalSize = 0;
     let completed = 0;
     let aborted = false;
+    let quotaExceeded = false;
     const errors: string[] = [];
     const originalFetch = getOriginalFetch();
 
@@ -79,6 +81,7 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
     async function worker(): Promise<void> {
         while (true) {
             if (opts.signal?.aborted) { aborted = true; return; }
+            if (quotaExceeded) return; // stockage plein : on arrête de planifier
             const i = next++;
             if (i >= allTiles.length) return;
 
@@ -106,6 +109,11 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
                 }
             } catch (e) {
                 if (opts.signal?.aborted) { aborted = true; return; }
+                if (isQuotaExceeded(e)) {
+                    quotaExceeded = true;
+                    errors.push(`${url}: stockage plein (quota IndexedDB dépassé)`);
+                    return;
+                }
                 errors.push(`${url}: ${e}`);
             }
 
@@ -117,7 +125,7 @@ export async function downloadTiles(opts: DownloadOptions): Promise<DownloadResu
     const pool = Array.from({ length: Math.min(concurrency, total) }, () => worker());
     await Promise.all(pool);
 
-    return { tileCount: downloaded, total, totalSize, errors, aborted };
+    return { tileCount: downloaded, total, totalSize, errors, aborted, quotaExceeded };
 }
 
 /**

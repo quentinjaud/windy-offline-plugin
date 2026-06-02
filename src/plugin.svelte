@@ -243,7 +243,9 @@
                 loadPacks();
             }
 
-            if (result.aborted) {
+            if (result.quotaExceeded) {
+                errorMsg = `Stockage plein : ${result.tileCount}/${result.total} tiles téléchargées. Libère de l'espace ou réduis la zone.`;
+            } else if (result.aborted) {
                 errorMsg = 'Téléchargement annulé.';
             } else if (result.errors.length > 0) {
                 errorMsg = `${result.tileCount}/${result.total} tiles ok, ${result.errors.length} erreur(s).`;

@@ -83,7 +83,7 @@ describe('cacheProxy — interception fetch', () => {
 
     it('mode offline : sert depuis le cache sans toucher au réseau (hit)', async () => {
         const network = vi.fn(async () => jsonResponse({ from: 'network' }));
-        const proxy = await setupProxy(network);
+        await setupProxy(network);
         const { putCacheEntry } = await import('../src/lib/storage');
         const { setActivePackId } = await import('../src/lib/packState');
         const key = normalizeUrl(CITYTILE_URL);
@@ -99,7 +99,7 @@ describe('cacheProxy — interception fetch', () => {
 
     it('mode offline : réponse vide sur cache miss, sans toucher au réseau', async () => {
         const network = vi.fn(async () => jsonResponse({ from: 'network' }));
-        const proxy = await setupProxy(network);
+        await setupProxy(network);
         const { setActivePackId } = await import('../src/lib/packState');
         setActivePackId('p1');
 
