@@ -115,7 +115,7 @@ suggère fortement que oui.
 
 | ID | Tâche | Est. | Dépend | Statut |
 |----|-------|------|--------|--------|
-| **P0-C** | Persister `activePackId` dans `localStorage` ([packState.ts](src/lib/packState.ts)) → l'offline survit au reload (le cas d'usage réel). | 0,5 j | — | ⬜ TODO |
+| **P0-C** | Persister `activePackId` dans `localStorage` ([packState.ts](src/lib/packState.ts)) → l'offline survit au reload (le cas d'usage réel). | 0,5 j | — | ✅ DONE — hydratation à l'init + `setItem`/`removeItem`, fallback si localStorage indispo. Tests [packState.test.ts](tests/packState.test.ts) (reload, désactivation, défaut, robustesse). |
 | **P0-B** | Capturer-et-rejouer le **vrai** refTime/hours/step de Windy (via `@windy/store` ou la requête captée) au lieu de les deviner (`getRefTime` [downloadManager.ts:147](src/lib/downloadManager.ts#L147), désormais testable car prend `now` en paramètre). Sinon mismatch de clé → cache miss → carte grise. Décision possible : retirer refTime de la clé. | 1–2 j | A-2 | ⬜ TODO |
 | **P0-D** | Piner le calendrier/timestamp Windy sur `pack.timeRange` à l'activation, pour que Windy demande les tiles cachées. | 1 j | P0-B | ⬜ TODO |
 
