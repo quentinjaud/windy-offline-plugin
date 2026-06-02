@@ -4,9 +4,11 @@
 > d'une zone, les afficher sans connexion. Le plugin agit comme cache transparent des
 > requêtes `node.windy.com/citytile` (voir [ARCHITECTURE.md](./ARCHITECTURE.md)).
 
-**État au 2026-06-02 :** analyse PM + dev senior faite. Le code est en réalité en
-**Phase 4-5** (4 composants fonctionnels, 17 tests verts), pas Phase 0 comme l'annonce
-ARCHITECTURE.md. Aucun item de cette roadmap n'est encore implémenté.
+**État au 2026-06-02 (resync sur v0.3.1) :** le code est en **Phase 4-5** (4 composants
+fonctionnels, 24 tests unitaires verts + infra e2e Playwright), pas Phase 0 comme l'annonce
+ARCHITECTURE.md. Le refactor v0.3.1 (registre des modèles dans [models.ts](src/lib/models.ts),
+helpers en lib, styles DRY) a **déjà résolu P1-1+2 et P1-3** (voir ci-dessous). Les `file:line`
+de cette roadmap sont alignés sur v0.3.1.
 
 ---
 
@@ -97,9 +99,14 @@ Règles :
 | **A-1** | Spike P0-A : charger un plugin custom sur l'app Android + compteur `fetch` instrumenté dans [cacheProxy.ts](src/lib/cacheProxy.ts) + test pan/zoom avec overlay. Verdict : le `fetch` citytile est-il interceptable dans le webview Android ? Prérequis à lever d'abord : *peut-on charger son propre plugin sur Android ?* | 1–2 j | — | ⬜ TODO |
 | **A-2** | Question overlay : une réponse citytile couvre-t-elle **tous** les overlays ou **un seul** ? (inspecter le JSON capté). Détermine si un pack vaut pour tous les overlays. | 0,25 j | — | ⬜ TODO |
 
+> ⚠️ **Attention :** le test e2e [tests/e2e/mobile.test.ts](tests/e2e/mobile.test.ts) **ne couvre pas A-1**.
+> Il émule un iPhone dans un navigateur Playwright contre `windy.com/developer-mode` (vérifie le z-order
+> du panneau en *viewport mobile web*) — il ne teste **pas** l'interception `fetch` dans le **webview natif
+> Android**. L'infra Playwright + chargement dev-mode reste un bon point de départ pour A-1.
+
 **En parallèle (coût zéro) :** poser la question au forum/Discord dev Windy — « les plugins
 externes tournent-ils dans le même webview que la carte sur Android, et peuvent-ils
-intercepter le fetch citytile ? ». Le `mobileUI: 'small'` ([pluginConfig.ts:14](src/pluginConfig.ts#L14))
+intercepter le fetch citytile ? ». Le `mobileUI: 'fullscreen'` ([pluginConfig.ts:12](src/pluginConfig.ts#L12))
 suggère fortement que oui.
 
 ## Phase B — Rendre l'offline réellement utilisable
@@ -109,31 +116,31 @@ suggère fortement que oui.
 | ID | Tâche | Est. | Dépend | Statut |
 |----|-------|------|--------|--------|
 | **P0-C** | Persister `activePackId` dans `localStorage` ([packState.ts](src/lib/packState.ts)) → l'offline survit au reload (le cas d'usage réel). | 0,5 j | — | ⬜ TODO |
-| **P0-B** | Capturer-et-rejouer le **vrai** refTime/hours/step de Windy (via `@windy/store` ou la requête captée) au lieu de les deviner ([plugin.svelte:307](src/plugin.svelte#L307)). Sinon mismatch de clé → cache miss → carte grise. Décision possible : retirer refTime de la clé. | 1–2 j | A-2 | ⬜ TODO |
+| **P0-B** | Capturer-et-rejouer le **vrai** refTime/hours/step de Windy (via `@windy/store` ou la requête captée) au lieu de les deviner (`getRefTime` [downloadManager.ts:147](src/lib/downloadManager.ts#L147), désormais testable car prend `now` en paramètre). Sinon mismatch de clé → cache miss → carte grise. Décision possible : retirer refTime de la clé. | 1–2 j | A-2 | ⬜ TODO |
 | **P0-D** | Piner le calendrier/timestamp Windy sur `pack.timeRange` à l'activation, pour que Windy demande les tiles cachées. | 1 j | P0-B | ⬜ TODO |
 
 ## Phase C — Bugs de correctness du cache
 
 | ID | Tâche | Est. | Dépend | Statut |
 |----|-------|------|--------|--------|
-| **P1-1+2** | Télécharger via `originalFetch` (bypass du proxy) → supprime la race `__uncaptured__` ([cacheProxy.ts:110](src/lib/cacheProxy.ts#L110)) **et** l'empoisonnement par tiles vides si un pack est actif. | 0,5 j | — | ⬜ TODO |
-| **P1-3** | Aligner l'estimation de taille sur le `getZoomLevels` réel + corriger les params ignorés ([tileMath.ts:74](src/lib/tileMath.ts#L74)) + Ko/tile réaliste ([DownloadPanel.svelte:28](src/DownloadPanel.svelte#L28)). | 0,5 j | — | ⬜ TODO |
-| **P1-4** | Paralléliser le download (concurrence 4–6) + retry/backoff sur 429/5xx ([downloadManager.ts:134](src/lib/downloadManager.ts#L134)). | 1 j | — | ⬜ TODO |
+| **P1-1+2** | Télécharger via `originalFetch` (bypass du proxy) → supprime la race `__uncaptured__` **et** l'empoisonnement par tiles vides si un pack est actif. | 0,5 j | — | ✅ DONE (v0.3.1) — `getOriginalFetch()` [cacheProxy.ts:29](src/lib/cacheProxy.ts#L29) utilisé par [downloadManager.ts:82](src/lib/downloadManager.ts#L82) |
+| **P1-3** | Aligner l'estimation de taille sur le `getZoomLevels` réel + retirer les params ignorés de `getZoomLevels`. | 0,5 j | — | ✅ DONE (v0.3.1) — estime via `getZoomLevels(bbox).filter(z<=maxZoom)` [DownloadPanel.svelte:26](src/DownloadPanel.svelte#L26), identique au download [downloadManager.ts:40](src/lib/downloadManager.ts#L40) ; params morts retirés [tileMath.ts:74](src/lib/tileMath.ts#L74). *Résidu mineur optionnel : l'heuristique 5 Ko/tile [DownloadPanel.svelte:30](src/DownloadPanel.svelte#L30) reste approximative.* |
+| **P1-4** | Paralléliser le download (concurrence 4–6) + retry/backoff sur 429/5xx (rate limit séquentiel actuel [downloadManager.ts:112](src/lib/downloadManager.ts#L112)). | 1 j | — | ⬜ TODO |
 
 ## Phase D — Robustesse / dette
 
 | ID | Tâche | Est. | Dépend | Statut |
 |----|-------|------|--------|--------|
-| **P2-1** | Gestion quota IndexedDB (QuotaExceeded → message UI, éviction). | 1 j | — | ⬜ TODO |
-| **P2-2** | Tests `cacheProxy` + `downloadManager` (les 2 zones non testées, les plus risquées). | 1 j | P1-1+2 | ⬜ TODO |
-| **P2-3** | Perf `getCacheSize` (total courant vs `getAll`) + borner/retirer la capture passive `__uncaptured__` + MAJ [ARCHITECTURE.md](./ARCHITECTURE.md) (phase réelle). | 0,5 j | — | ⬜ TODO |
+| **P2-1** | Gestion quota IndexedDB (QuotaExceeded → message UI, éviction). Actuellement l'erreur est avalée en silence [cacheProxy.ts:116](src/lib/cacheProxy.ts#L116). | 1 j | — | ⬜ TODO |
+| **P2-2** | Tests unitaires `cacheProxy` + `downloadManager` (toujours non testés en unitaire ; seuls urlUtils/config/tileMath/models/storage le sont). | 1 j | — | ⬜ TODO |
+| **P2-3** | Perf `getCacheSize` (total courant vs `getAll` [storage.ts:105](src/lib/storage.ts#L105)) + borner/retirer la capture passive `__uncaptured__` toujours active [cacheProxy.ts:114](src/lib/cacheProxy.ts#L114) + MAJ [ARCHITECTURE.md](./ARCHITECTURE.md) (phase réelle). | 0,5 j | — | ⬜ TODO |
 
 ---
 
 ## Chemin critique
 
 **A-1 → P0-C → P0-B → P0-D** (~3,5–5,5 j) = la promesse « affichage offline après reload ».
-Total roadmap hors gate : ~6–7 j.
+Restant hors gate : ~5 j (P1-1+2 et P1-3 déjà faits par v0.3.1).
 
 ## Détail des constats
 
