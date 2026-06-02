@@ -1,7 +1,9 @@
 # windy-offline-plugin — Plan d'architecture
 
-> **Status:** Validé — Phase 0 terminée
-> **Date:** 2026-05-30
+> **Status:** Composants 1-4 implémentés (v0.3.1). Polish en cours.
+> **Date:** 2026-05-30 (init) · resync 2026-06-02
+> **État courant & priorités :** voir [ROADMAP.md](./ROADMAP.md). Verrou ouvert : valider
+> l'interception `fetch` dans l'app **Android** (spike A-1).
 
 ## Objectif
 
@@ -77,7 +79,9 @@ Monkey-patch de `window.fetch`, installé `onMount`, retiré `onDestroy`.
 **Mode Offline (pack actif) :**
 1. Cherche dans IndexedDB (clé = URL sans token)
 2. Si trouvé → reconstruit un objet Response avec le JSON stocké
-3. Si pas trouvé → laisse passer vers le réseau (ou bloque si vraiment offline)
+3. Si pas trouvé → renvoie une réponse vide `{}` (Windy affiche des zones grises) — ne touche pas au réseau
+
+> La capture passive online (`__uncaptured__`) est bornée (FIFO) pour ne pas grossir sans limite — voir `MAX_PASSIVE_ENTRIES`.
 
 #### StorageEngine (IndexedDB)
 
@@ -110,7 +114,7 @@ Pack {
 #### DownloadManager
 
 1. Calcule toutes les URLs citytile pour la zone : bbox → indices Z/X/Y, modèle, refTime, plage horaire
-2. Fetch séquentiel (respecter le rate limit 3 req/s du forum Windy, à confirmer)
+2. Téléchargement parallèle (pool borné, `concurrency`) via le `fetch` original (bypass du proxy) avec retry/backoff sur erreurs transitoires (429/5xx/réseau) ; débit régulé par concurrence + backoff
 3. Progression trackée
 4. Création d'un Pack dans IndexedDB une fois terminé
 
@@ -142,35 +146,22 @@ Pack {
 
 ## Phases d'implémentation
 
-### Phase 0 — Setup repo ✅
-- [x] Création repo `quentinjaud/windy-offline-plugin`
-- [x] Investigation réseau : citytile JSON via fetch confirmé
-- [x] Architecture validée
+> Détail à jour et statut par tâche : **[ROADMAP.md](./ROADMAP.md)**.
 
-### Phase 1 — Setup + StorageEngine
-- [ ] Cloner le template Windy, configurer le repo
-- [ ] AGENTS.md, TODO.md
-- [ ] IndexedDB : CacheEntry + Pack stores
-- [ ] URL normalizer (strip params volatils)
+### Phases 0-4 — Setup, StorageEngine, CacheProxy, DownloadManager, UI ✅
+- [x] Repo, AGENTS.md, investigation réseau, architecture validée
+- [x] IndexedDB : stores CacheEntry + Pack, URL normalizer
+- [x] CacheProxy : monkey-patch fetch (capture online + service offline)
+- [x] DownloadManager : bbox → tiles → URLs → téléchargement parallèle + retry/backoff
+- [x] UI Svelte : modes Download / Offline, sélecteurs, rectangle/zone écran, progression, packs
 
-### Phase 2 — CacheProxy
-- [ ] Monkey-patch fetch (online capture)
-- [ ] Mode offline : servir depuis IndexedDB
-- [ ] Reconstruction de Response à partir du JSON stocké
-
-### Phase 3 — DownloadManager
-- [ ] Calcul bbox → tiles Z/X/Y
-- [ ] Construction URLs citytile
-- [ ] Boucle de téléchargement avec rate limiting + progression
-
-### Phase 4 — UI
-- [ ] Layout Svelte : deux modes
-- [ ] Sélecteurs modèle/overlay/plage temporelle
-- [ ] Rectangle + "zone écran"
-- [ ] Barre progression, estimation taille
-- [ ] Liste packs, activation/désactivation
-
-### Phase 5 — Polish
-- [ ] Gestion edge cases (quota IndexedDB, modèle non dispo, token expiré)
-- [ ] Tests
+### Phase 5 — Polish (en cours)
+- [x] Persistance du pack actif (localStorage) — survit au reload [P0-C]
+- [x] Téléchargement parallèle + retry/backoff [P1-4]
+- [x] Tests cacheProxy + downloadManager [P2-2]
+- [x] Perf `getCacheSize` (curseur) + capture passive bornée (FIFO) [P2-3]
+- [ ] Gestion quota IndexedDB (QuotaExceeded → UI, éviction) [P2-1]
+- [ ] **refTime/hours/step réels** capturés depuis Windy au lieu d'être devinés [P0-B]
+- [ ] Pin du calendrier Windy sur la plage du pack à l'activation [P0-D]
+- [ ] **Spike Android (A-1)** : valider l'interception fetch dans le webview natif
 - [ ] Publication

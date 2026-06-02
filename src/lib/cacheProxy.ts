@@ -5,7 +5,7 @@
 // - Online (par défaut) : capture passive, stocke dans IndexedDB
 // - Offline (pack actif) : sert depuis IndexedDB, ne fait pas de requête réseau
 
-import { getCacheEntry, putCacheEntry } from './storage';
+import { getCacheEntry, putPassiveEntry } from './storage';
 import { normalizeUrl } from './urlUtils';
 import { getActivePackId } from './packState';
 
@@ -106,7 +106,7 @@ async function captureResponse(cacheKey: string, response: Response, packId: str
 
         const size = new Blob([JSON.stringify(json)]).size;
 
-        await putCacheEntry({
+        await putPassiveEntry({
             url: cacheKey,
             json,
             size,

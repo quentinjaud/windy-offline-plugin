@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import 'fake-indexeddb/auto'; // expose les globals IndexedDB (dont IDBKeyRange)
 import { IDBFactory } from 'fake-indexeddb';
 import { estimateTileCount, type BBox } from '../src/lib/tileMath';
 import type { downloadTiles as DownloadTilesFn } from '../src/lib/downloadManager';

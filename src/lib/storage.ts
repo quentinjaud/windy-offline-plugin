@@ -3,6 +3,9 @@
 const DB_NAME = 'windy-offline';
 const DB_VERSION = 1;
 
+/** Plafond d'entrées de capture passive (`__uncaptured__`) avant éviction FIFO. */
+export const MAX_PASSIVE_ENTRIES = 1000;
+
 export interface CacheEntry {
     url: string;       // clé primaire = URL normalisée (sans token2, uid, poc, pr, sc)
     json: unknown;     // le JSON citytile complet
@@ -24,11 +27,16 @@ export interface Pack {
 }
 
 let db: IDBDatabase | null = null;
+let dbPromise: Promise<IDBDatabase> | null = null;
 
 function openDB(): Promise<IDBDatabase> {
     if (db) return Promise.resolve(db);
+    // Mémorise la promesse en vol : plusieurs appels concurrents (workers de
+    // download, capture passive, lectures) partagent une seule requête open
+    // au lieu d'en lancer plusieurs en parallèle sur une DB pas encore créée.
+    if (dbPromise) return dbPromise;
 
-    return new Promise((resolve, reject) => {
+    dbPromise = new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
         request.onupgradeneeded = () => {
@@ -50,8 +58,12 @@ function openDB(): Promise<IDBDatabase> {
             resolve(db);
         };
 
-        request.onerror = () => reject(request.error);
+        request.onerror = () => {
+            dbPromise = null;
+            reject(request.error);
+        };
     });
+    return dbPromise;
 }
 
 export function closeDB(): void {
@@ -59,6 +71,7 @@ export function closeDB(): void {
         db.close();
         db = null;
     }
+    dbPromise = null;
 }
 
 // CacheEntry CRUD
@@ -106,13 +119,65 @@ export async function getCacheSize(): Promise<number> {
     const database = await openDB();
     return new Promise((resolve, reject) => {
         const tx = database.transaction('cacheEntries', 'readonly');
-        const request = tx.objectStore('cacheEntries').getAll();
+        // Curseur plutôt que getAll() : on somme les tailles sans matérialiser
+        // tous les JSON en mémoire d'un coup (peut peser des centaines de Mo).
+        const request = tx.objectStore('cacheEntries').openCursor();
+        let total = 0;
         request.onsuccess = () => {
-            const total = (request.result as CacheEntry[]).reduce((sum, e) => sum + e.size, 0);
-            resolve(total);
+            const cursor = request.result;
+            if (cursor) {
+                total += (cursor.value as CacheEntry).size;
+                cursor.continue();
+            } else {
+                resolve(total);
+            }
         };
         request.onerror = () => reject(request.error);
     });
+}
+
+/** Nombre d'entrées de cache rattachées à un pack (count sur index, sans charger les valeurs). */
+export async function countCacheEntriesByPack(packId: string): Promise<number> {
+    const database = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = database.transaction('cacheEntries', 'readonly');
+        const request = tx.objectStore('cacheEntries').index('packId').count(IDBKeyRange.only(packId));
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+/** Supprime l'entrée la plus ancienne (par createdAt) rattachée à un pack donné. */
+function deleteOldestByPack(packId: string): Promise<void> {
+    return openDB().then(database => new Promise((resolve, reject) => {
+        const tx = database.transaction('cacheEntries', 'readwrite');
+        const request = tx.objectStore('cacheEntries').index('createdAt').openCursor(); // ascendant = plus ancien d'abord
+        request.onsuccess = () => {
+            const cursor = request.result;
+            if (cursor) {
+                if ((cursor.value as CacheEntry).packId === packId) {
+                    cursor.delete();
+                    return; // plus ancienne trouvée — tx.oncomplete clôt
+                }
+                cursor.continue();
+            }
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    }));
+}
+
+/**
+ * Stocke une entrée de capture passive en bornant leur nombre : au-delà de
+ * `max` entrées pour ce pack, évince la plus ancienne (FIFO) avant d'insérer.
+ * Évite que la capture passive `__uncaptured__` ne grossisse sans limite.
+ */
+export async function putPassiveEntry(entry: CacheEntry, max = MAX_PASSIVE_ENTRIES): Promise<void> {
+    const count = await countCacheEntriesByPack(entry.packId);
+    if (count >= max) {
+        await deleteOldestByPack(entry.packId);
+    }
+    await putCacheEntry(entry);
 }
 
 // Pack CRUD

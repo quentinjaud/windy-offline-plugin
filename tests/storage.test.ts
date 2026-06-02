@@ -5,6 +5,8 @@ import {
     getCacheEntry,
     deleteCacheEntriesByPack,
     getCacheSize,
+    countCacheEntriesByPack,
+    putPassiveEntry,
     putPack,
     getPack,
     getAllPacks,
@@ -122,6 +124,28 @@ describe('StorageEngine', () => {
             expect(await getPack('p1')).toBeUndefined();
             expect(await getCacheEntry('url1')).toBeUndefined();
             expect(await getCacheEntry('url2')).toBeUndefined();
+        });
+    });
+
+    describe('Capture passive bornée', () => {
+        it('countCacheEntriesByPack compte les entrées d\'un pack', async () => {
+            await putCacheEntry(makeEntry('u1', '__uncaptured__'));
+            await putCacheEntry(makeEntry('u2', '__uncaptured__'));
+            await putCacheEntry(makeEntry('u3', 'p1'));
+
+            expect(await countCacheEntriesByPack('__uncaptured__')).toBe(2);
+            expect(await countCacheEntriesByPack('p1')).toBe(1);
+        });
+
+        it('putPassiveEntry évince la plus ancienne au-delà du max', async () => {
+            await putPassiveEntry({ ...makeEntry('u1', '__uncaptured__'), createdAt: 1 }, 2);
+            await putPassiveEntry({ ...makeEntry('u2', '__uncaptured__'), createdAt: 2 }, 2);
+            await putPassiveEntry({ ...makeEntry('u3', '__uncaptured__'), createdAt: 3 }, 2);
+
+            expect(await getCacheEntry('u1')).toBeUndefined(); // la plus ancienne évincée
+            expect(await getCacheEntry('u2')).toBeDefined();
+            expect(await getCacheEntry('u3')).toBeDefined();
+            expect(await countCacheEntriesByPack('__uncaptured__')).toBe(2);
         });
     });
 });
