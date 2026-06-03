@@ -28,10 +28,21 @@ async function waitFor(predicate: () => Promise<boolean>, timeout = 1000): Promi
 beforeEach(() => {
     vi.resetModules();
     globalThis.indexedDB = new IDBFactory();
+    // XMLHttpRequest n'existe pas nativement en Node — mock minimal avec
+    // prototype réel pour que le monkey-patch puisse s'y accrocher.
+    if (typeof globalThis.XMLHttpRequest === 'undefined') {
+        class MockXHR {
+            open(_method: string, _url: string | URL, _async?: boolean, _user?: string | null, _pw?: string | null) {}
+            send(_body?: any) {}
+        }
+        (globalThis as any).XMLHttpRequest = MockXHR;
+    }
 });
 
 afterEach(() => {
     vi.unstubAllGlobals();
+    // Nettoyer le mock XHR pour ne pas polluer les autres suites de tests
+    delete (globalThis as any).XMLHttpRequest;
 });
 
 /** Installe un fetch mocké comme window.fetch, puis active le proxy par-dessus. */
@@ -108,6 +119,28 @@ describe('cacheProxy — interception fetch', () => {
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({});
         expect(network).not.toHaveBeenCalled();
+    });
+});
+
+describe('cacheProxy — XHR interception (compteur)', () => {
+    it('incrémente sur citytile, ignore les autres URLs', async () => {
+        const network = vi.fn(async () => jsonResponse({}));
+        vi.stubGlobal('window', {
+            fetch: network,
+            XMLHttpRequest: globalThis.XMLHttpRequest,
+        });
+        const { install, getXHRCitytileCount } = await import('../src/lib/cacheProxy');
+        install();
+
+        expect(getXHRCitytileCount()).toBe(0);
+
+        const citytileXhr = new XMLHttpRequest();
+        citytileXhr.open('GET', CITYTILE_URL);
+        expect(getXHRCitytileCount()).toBe(1);
+
+        const normalXhr = new XMLHttpRequest();
+        normalXhr.open('GET', 'https://example.com/other-resource');
+        expect(getXHRCitytileCount()).toBe(1); // inchangé
     });
 });
 

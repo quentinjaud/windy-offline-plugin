@@ -7,6 +7,7 @@
 //  3. Vérifier IndexedDB accessible et fonctionnel
 //  4. Vérifier localStorage accessible
 //  5. Tester une requête citytile réelle (si token capturé)
+//  6. Détecter si Windy Android utilise XHR au lieu de fetch pour citytile
 //
 // Le rapport est auto-suffisant — un clic, un copier-coller, et on sait tout.
 
@@ -277,6 +278,38 @@ export async function runDiagnostics(): Promise<DiagnosticReport> {
         }
     } catch (e) {
         // Optionnel — pas de check si aucun token
+    }
+
+    // ── XHR interception (diagnostic spécifique Android) ─────────
+    try {
+        const { getXHRCitytileCount } = await import('./cacheProxy');
+
+        // On récupère le compteur actuel, puis on relance un setTimeout
+        // de 500ms pour voir s'il y a des XHR citytile en vol.
+        const countBefore = getXHRCitytileCount();
+        await new Promise(r => setTimeout(r, 500));
+        const countAfter = getXHRCitytileCount();
+        const delta = countAfter - countBefore;
+
+        if (countAfter > 0) {
+            checks.push(check(
+                'XHR interception', 'XMLHttpRequest citytile',
+                'pass',
+                `${countAfter} requête(s) XHR citytile interceptée(s) au total. Windy Android utilise XHR — le patch fetch ne suffit pas.`
+            ));
+        } else if (delta === 0) {
+            checks.push(check(
+                'XHR interception', 'XMLHttpRequest citytile',
+                'warn',
+                `Aucune requête XHR citytile détectée (total=${countAfter}, delta=${delta}). Active un calque (vent…) et navigue, puis Relancer.`
+            ));
+        }
+    } catch (e) {
+        checks.push(check(
+            'XHR interception', 'Accès compteur',
+            'fail',
+            `Erreur: ${e}`
+        ));
     }
 
     // ── Résumé ───────────────────────────────────────────────────

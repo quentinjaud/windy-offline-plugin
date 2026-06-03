@@ -16,6 +16,12 @@ let installCount = 0;
 let capturedToken: string | null = null;
 let capturedParams: Record<string, string> | null = null;
 
+// Compteur XHR : détecte si Windy Android utilise XMLHttpRequest au lieu de fetch
+// pour les requêtes citytile. Incrémenté à chaque open() citytile intercepté.
+let xhrCitytileCount = 0;
+let originalXHROpen: typeof XMLHttpRequest.prototype.open | null = null;
+let originalXHRSend: typeof XMLHttpRequest.prototype.send | null = null;
+
 export function getCapturedToken(): string | null {
     return capturedToken;
 }
@@ -23,6 +29,10 @@ export function getCapturedToken(): string | null {
 /** Retourne les paramètres de query capturés sur la dernière requête citytile Windy */
 export function getCapturedParams(): Record<string, string> | null {
     return capturedParams;
+}
+
+export function getXHRCitytileCount(): number {
+    return xhrCitytileCount;
 }
 
 /** Retourne le fetch original (avant monkey-patch) pour contourner le proxy */
@@ -36,6 +46,40 @@ export function install(): void {
 
     originalFetch = window.fetch;
 
+    // ──────────── XHR interception (compteur uniquement) ────────────
+    // Windy Android utilise potentiellement XMLHttpRequest plutôt que fetch
+    // pour ses requêtes citytile. On patche open() pour incrémenter un
+    // compteur passif — pas d'interception fonctionnelle pour l'instant,
+    // le but est de confirmer le transport avant d'investir dedans.
+    if (typeof XMLHttpRequest !== 'undefined') {
+        originalXHROpen = XMLHttpRequest.prototype.open;
+        originalXHRSend = XMLHttpRequest.prototype.send;
+
+        XMLHttpRequest.prototype.open = function patchedXHROpen(
+            this: XMLHttpRequest,
+            method: string,
+            url: string | URL,
+            async?: boolean,
+            username?: string | null,
+            password?: string | null,
+        ): void {
+            const urlStr = typeof url === 'string' ? url : url.href;
+            if (urlStr.includes('citytile')) {
+                xhrCitytileCount++;
+            }
+            // @ts-expect-error — overloads conflict but runtime is fine
+            return originalXHROpen!.call(this, method, url, async, username, password);
+        };
+
+        XMLHttpRequest.prototype.send = function patchedXHRSend(
+            this: XMLHttpRequest,
+            body?: Document | XMLHttpRequestBodyInit | null,
+        ): void {
+            return originalXHRSend!.call(this, body);
+        };
+    }
+
+    // ──────────── fetch interception ────────────
     window.fetch = async function patchedFetch(
         input: RequestInfo | URL,
         init?: RequestInit

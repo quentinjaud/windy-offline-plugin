@@ -61,6 +61,7 @@ describe('diagnostic - runDiagnostics', () => {
         expect(categories.has('IndexedDB')).toBe(true);
         expect(categories.has('localStorage')).toBe(true);
         expect(categories.has('Fetch interception')).toBe(true);
+        expect(categories.has('XHR interception')).toBe(true);
     });
 
     it('IndexedDB : ouverture, écriture, lecture OK avec fake-indexeddb', async () => {
