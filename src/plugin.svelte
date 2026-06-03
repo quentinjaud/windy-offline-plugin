@@ -17,6 +17,9 @@
             💾 Hors-ligne
             {#if packs.length > 0}<span class="tab__count">{ packs.length }</span>{/if}
         </button>
+        <button class="tab" class:active={ mode === 'diagnostic' } on:click={ () => mode = 'diagnostic' }>
+            🔍 Diag.
+        </button>
     </div>
 
     {#if mode === 'download'}
@@ -35,6 +38,8 @@
             on:startDownload={ startDownload }
             on:cancelDownload={ cancelDownload }
         />
+    {:else if mode === 'diagnostic'}
+        <DiagnosticPanel />
     {:else}
         <OfflinePanel
             {packs}
@@ -55,6 +60,7 @@
 
     import DownloadPanel from './DownloadPanel.svelte';
     import OfflinePanel from './OfflinePanel.svelte';
+    import DiagnosticPanel from './DiagnosticPanel.svelte';
 
     import config from './pluginConfig';
     import { install, uninstall } from './lib/cacheProxy';
@@ -77,7 +83,7 @@
     }
 
     // UI state
-    let mode: 'download' | 'offline' = 'download';
+    let mode: 'download' | 'offline' | 'diagnostic' = 'download';
     let model = 'arome';
     let drawing = false;
     let rectBounds: BBox | null = null;
