@@ -32,6 +32,25 @@ URL de cache = URL normalisée (strip params volatils).
 - Commit messages en français
 - Pas de config.yaml à modifier (plugin auto-contenu)
 
+## Publication / versioning
+
+Pour **republier le plugin**, il faut bumper le numéro de version puis pousser un tag.
+
+1. **Bumper la version dans les 3 fichiers, en cohérence** (toujours les trois ensemble) :
+   - `package.json` → `"version"`
+   - `plugin.json` → `"version"`
+   - `src/pluginConfig.ts` → `version`
+   Commit : `chore: bump version X → Y (...)`.
+2. **Déclencher la publication** en poussant un tag `v*.*.*` :
+   ```bash
+   git tag v0.4.2 && git push origin v0.4.2
+   ```
+   Le workflow [.github/workflows/publish-plugin.yml](.github/workflows/publish-plugin.yml)
+   (trigger : push de tag `v*.*.*` ou *workflow_dispatch*) build le plugin et l'upload vers
+   `node.windy.com/plugins/v1.0/upload` avec le secret `WINDY_API_KEY`.
+
+> ⚠️ Sans bump de version, l'upload republie la même version — pense à incrémenter avant de tagger.
+
 ## Travail en cours & coopération multi-agents
 
 - **[ROADMAP.md](./ROADMAP.md) est la source de vérité de l'état du chantier.** Avant de
