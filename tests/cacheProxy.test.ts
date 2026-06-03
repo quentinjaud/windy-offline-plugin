@@ -108,6 +108,17 @@ describe('cacheProxy — interception fetch', () => {
         expect(network).not.toHaveBeenCalled();
     });
 
+    it('compte les fetch citytile (et ignore les autres URLs)', async () => {
+        const network = vi.fn(async () => jsonResponse({ forecast: {} }));
+        const proxy = await setupProxy(network);
+
+        expect(proxy.getFetchCitytileCount()).toBe(0);
+        await window.fetch('https://example.com/autre-chose');
+        expect(proxy.getFetchCitytileCount()).toBe(0); // non-citytile ignoré
+        await window.fetch(CITYTILE_URL);
+        expect(proxy.getFetchCitytileCount()).toBe(1);
+    });
+
     it('mode offline : réponse vide sur cache miss, sans toucher au réseau', async () => {
         const network = vi.fn(async () => jsonResponse({ from: 'network' }));
         await setupProxy(network);

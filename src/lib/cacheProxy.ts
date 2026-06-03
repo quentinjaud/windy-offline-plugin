@@ -19,6 +19,9 @@ let capturedParams: Record<string, string> | null = null;
 // Compteur XHR : détecte si Windy Android utilise XMLHttpRequest au lieu de fetch
 // pour les requêtes citytile. Incrémenté à chaque open() citytile intercepté.
 let xhrCitytileCount = 0;
+// Compteur fetch : symétrique du compteur XHR, pour la sonde (delta fetch vs XHR).
+// Indépendant de la capture du token (incrémenté même si aucun token2 dans l'URL).
+let fetchCitytileCount = 0;
 let originalXHROpen: typeof XMLHttpRequest.prototype.open | null = null;
 let originalXHRSend: typeof XMLHttpRequest.prototype.send | null = null;
 
@@ -33,6 +36,10 @@ export function getCapturedParams(): Record<string, string> | null {
 
 export function getXHRCitytileCount(): number {
     return xhrCitytileCount;
+}
+
+export function getFetchCitytileCount(): number {
+    return fetchCitytileCount;
 }
 
 /** Retourne le fetch original (avant monkey-patch) pour contourner le proxy */
@@ -90,6 +97,9 @@ export function install(): void {
         if (!url.includes('citytile')) {
             return originalFetch!(input, init);
         }
+
+        // Compteur sonde : citytile passe par fetch (par opposition à XHR / transformRequest).
+        fetchCitytileCount++;
 
         // Capturer le token d'auth
         const parsedUrl = new URL(url);
