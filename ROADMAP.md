@@ -96,7 +96,7 @@ Règles :
 
 | ID | Tâche | Est. | Dépend | Statut |
 |----|-------|------|--------|--------|
-| **A-1** | Spike P0-A : charger un plugin custom sur l'app Android + compteur `fetch` instrumenté dans [cacheProxy.ts](src/lib/cacheProxy.ts) + test pan/zoom avec overlay. Verdict : le `fetch` citytile est-il interceptable dans le webview Android ? Prérequis à lever d'abord : *peut-on charger son propre plugin sur Android ?* | 1–2 j | — | ⬜ TODO |
+| **A-1** | Spike P0-A : charger un plugin custom sur l'app Android + compteur `fetch` instrumenté dans [cacheProxy.ts](src/lib/cacheProxy.ts) + test pan/zoom avec overlay. Verdict : le `fetch` citytile est-il interceptable dans le webview Android ? Prérequis à lever d'abord : *peut-on charger son propre plugin sur Android ?* | 1–2 j | — | 🚧 WIP @claude 2026-06-03 — sonde multi-transport (fetch / XHR / `transformRequest`) + énumération du realm Windy. À lancer sur device, puis trancher. |
 | **A-2** | Question overlay : une réponse citytile couvre-t-elle **tous** les overlays ou **un seul** ? (inspecter le JSON capté). Détermine si un pack vaut pour tous les overlays. | 0,25 j | — | ⬜ TODO |
 
 > ⚠️ **Attention :** le test e2e [tests/e2e/mobile.test.ts](tests/e2e/mobile.test.ts) **ne couvre pas A-1**.
