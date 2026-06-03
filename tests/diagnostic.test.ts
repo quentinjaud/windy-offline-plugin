@@ -12,7 +12,7 @@ import 'fake-indexeddb/auto';
 describe('diagnostic - runDiagnostics', () => {
     it('retourne un rapport structuré avec toutes les catégories', async () => {
         const { runDiagnostics } = await import('../src/lib/diagnostic');
-        const report = await runDiagnostics();
+        const report = await runDiagnostics({ sampleMs: 5 });
 
         // Structure du rapport
         expect(report).toHaveProperty('timestamp');
@@ -54,7 +54,7 @@ describe('diagnostic - runDiagnostics', () => {
 
     it('catégorise correctement les checks', async () => {
         const { runDiagnostics } = await import('../src/lib/diagnostic');
-        const report = await runDiagnostics();
+        const report = await runDiagnostics({ sampleMs: 5 });
 
         const categories = new Set(report.checks.map(c => c.category));
         expect(categories.has('Plateforme')).toBe(true);
@@ -62,11 +62,14 @@ describe('diagnostic - runDiagnostics', () => {
         expect(categories.has('localStorage')).toBe(true);
         expect(categories.has('Fetch interception')).toBe(true);
         expect(categories.has('XHR interception')).toBe(true);
+        expect(categories.has('Realm / hooks')).toBe(true);
+        expect(categories.has('Transport actif (fetch vs XHR)')).toBe(true);
+        expect(categories.has('transformRequest probe')).toBe(true);
     });
 
     it('IndexedDB : ouverture, écriture, lecture OK avec fake-indexeddb', async () => {
         const { runDiagnostics } = await import('../src/lib/diagnostic');
-        const report = await runDiagnostics();
+        const report = await runDiagnostics({ sampleMs: 5 });
 
         const idbChecks = report.checks.filter(c => c.category === 'IndexedDB');
         expect(idbChecks.length).toBeGreaterThanOrEqual(3);
@@ -79,7 +82,7 @@ describe('diagnostic - runDiagnostics', () => {
 
     it('localStorage : lecture/écriture OK (ou fail en environnement Node)', async () => {
         const { runDiagnostics } = await import('../src/lib/diagnostic');
-        const report = await runDiagnostics();
+        const report = await runDiagnostics({ sampleMs: 5 });
 
         const lsCheck = report.checks.find(c => c.category === 'localStorage');
         expect(lsCheck).toBeDefined();
@@ -92,7 +95,7 @@ describe('diagnostic - runDiagnostics', () => {
 
     it('ne lance pas de requête citytile sans token (pas de check ajouté)', async () => {
         const { runDiagnostics } = await import('../src/lib/diagnostic');
-        const report = await runDiagnostics();
+        const report = await runDiagnostics({ sampleMs: 5 });
 
         // En Node, pas de token → pas de check Citytile API
         const citytileChecks = report.checks.filter(c => c.category === 'Citytile API');
@@ -103,7 +106,7 @@ describe('diagnostic - runDiagnostics', () => {
         const { runDiagnostics } = await import('../src/lib/diagnostic');
 
         // Premier run crée et nettoie
-        await runDiagnostics();
+        await runDiagnostics({ sampleMs: 5 });
 
         // Vérifie que la base de test n'existe plus
         const dbs = await new Promise<string[]>((resolve) => {

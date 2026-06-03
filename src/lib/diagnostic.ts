@@ -41,9 +41,12 @@ function check(category: string, name: string, status: DiagnosticCheck['status']
 /**
  * Exécute tous les diagnostics et retourne un rapport structuré.
  * Stateless : n'écrit rien de persistant (les entrées test IndexedDB sont
- * nettoyées après).
+ * nettoyées après, la sonde transformRequest est désinstallée).
+ *
+ * @param sampleMs fenêtre d'échantillonnage du trafic citytile (fetch / XHR /
+ *   transformRequest). 3 s sur device ; les tests passent une petite valeur.
  */
-export async function runDiagnostics(): Promise<DiagnosticReport> {
+export async function runDiagnostics({ sampleMs = 3000 }: { sampleMs?: number } = {}): Promise<DiagnosticReport> {
     const checks: DiagnosticCheck[] = [];
 
     // ── Plateforme ──────────────────────────────────────────────
@@ -107,6 +110,42 @@ export async function runDiagnostics(): Promise<DiagnosticReport> {
             isMobile ? 'warn' : 'fail',
             `Module inaccessible: ${e}`
         ));
+    }
+
+    // ── Realm / hooks (le plugin partage-t-il le contexte JS de la carte ?) ──
+    // Décisif pour Android : un WebView n'offre aucune interception native ; le
+    // patch fetch/XHR ne marche que si le plugin tourne dans le même realm que la
+    // carte. On vérifie aussi quels points de hook GL sont atteignables.
+    if (win) {
+        const wKeys = win.W && typeof win.W === 'object' ? Object.keys(win.W) : [];
+        checks.push(check(
+            'Realm / hooks', 'window.W (clés)',
+            wKeys.length > 0 ? 'pass' : 'warn',
+            wKeys.length > 0 ? `${wKeys.length} clés: ${wKeys.slice(0, 40).join(', ')}`
+                             : 'window.W absent ou vide'
+        ));
+
+        const gl = win.maplibregl ?? win.maplibre ?? win.L;
+        checks.push(check(
+            'Realm / hooks', 'addProtocol (GL)',
+            gl && typeof gl.addProtocol === 'function' ? 'pass' : 'warn',
+            gl && typeof gl.addProtocol === 'function'
+                ? 'maplibregl.addProtocol dispo — service offline via pipeline GL envisageable'
+                : 'addProtocol indisponible — pas de synthèse de réponse via le pipeline GL'
+        ));
+    }
+
+    try {
+        const { map } = await import('@windy/map');
+        const hasSetTransform = !!map && typeof (map as any).setTransformRequest === 'function';
+        checks.push(check(
+            'Realm / hooks', 'map.setTransformRequest',
+            hasSetTransform ? 'pass' : 'warn',
+            hasSetTransform ? 'Hook GL atteignable depuis l\'objet map du plugin'
+                            : `Indisponible (map=${map ? 'présente' : 'null'}) — le pipeline GL n\'est pas hookable ici`
+        ));
+    } catch (e) {
+        checks.push(check('Realm / hooks', 'map.setTransformRequest', isMobile ? 'warn' : 'fail', `@windy/map inaccessible: ${e}`));
     }
 
     // ── Fetch interception ──────────────────────────────────────
@@ -280,36 +319,86 @@ export async function runDiagnostics(): Promise<DiagnosticReport> {
         // Optionnel — pas de check si aucun token
     }
 
-    // ── XHR interception (diagnostic spécifique Android) ─────────
+    // ── Échantillonnage du transport citytile (fetch / XHR / transformRequest) ──
+    // Fenêtre unique : on installe la sonde transformRequest (si la carte est
+    // atteignable), on relève les compteurs avant/après sampleMs, puis on restaure
+    // tout. C'est le cœur du verdict A-1 : par quel transport passe citytile ?
+    let probeMap: any = null;
     try {
-        const { getXHRCitytileCount } = await import('./cacheProxy');
+        const { getXHRCitytileCount, getFetchCitytileCount } = await import('./cacheProxy');
+        const probe = await import('./transformProbe');
 
-        // On récupère le compteur actuel, puis on relance un setTimeout
-        // de 500ms pour voir s'il y a des XHR citytile en vol.
-        const countBefore = getXHRCitytileCount();
-        await new Promise(r => setTimeout(r, 500));
-        const countAfter = getXHRCitytileCount();
-        const delta = countAfter - countBefore;
+        try {
+            const { map } = await import('@windy/map');
+            if (map && typeof (map as any).setTransformRequest === 'function') {
+                probeMap = map;
+                probe.installTransformProbe(probeMap);
+            }
+        } catch { /* @windy/map indispo (Node) — on échantillonne fetch/XHR seuls */ }
 
-        if (countAfter > 0) {
+        const xhrBefore = getXHRCitytileCount();
+        const fetchBefore = getFetchCitytileCount();
+
+        await new Promise(r => setTimeout(r, sampleMs));
+
+        const xhrAfter = getXHRCitytileCount();
+        const fetchAfter = getFetchCitytileCount();
+        const stats = probe.getTransformProbeStats();
+
+        const fetchDelta = fetchAfter - fetchBefore;
+        const xhrDelta = xhrAfter - xhrBefore;
+        const anyTraffic = fetchAfter > 0 || xhrAfter > 0 || stats.citytileSeen > 0;
+        checks.push(check(
+            'Transport actif (fetch vs XHR)', 'Compteurs citytile',
+            anyTraffic ? 'pass' : 'warn',
+            `fetch=${fetchAfter} (+${fetchDelta}), xhr=${xhrAfter} (+${xhrDelta}), transformRequest=${stats.citytileSeen}` +
+            (anyTraffic ? '' : ' — aucun trafic : active un calque (vent…) et navigue, puis Relancer.')
+        ));
+
+        // Compat : on conserve la catégorie 'XHR interception' historique.
+        checks.push(check(
+            'XHR interception', 'XMLHttpRequest citytile',
+            xhrAfter > 0 ? 'pass' : 'warn',
+            xhrAfter > 0 ? `${xhrAfter} XHR citytile au total — Windy utilise (aussi) XHR, le patch fetch ne suffit pas.`
+                         : `Aucune requête XHR citytile (total=${xhrAfter}, delta=${xhrDelta}).`
+        ));
+
+        // Sonde transformRequest : citytile transite-t-il par le pipeline GL ?
+        if (stats.available) {
             checks.push(check(
-                'XHR interception', 'XMLHttpRequest citytile',
+                'transformRequest probe', 'setTransformRequest',
                 'pass',
-                `${countAfter} requête(s) XHR citytile interceptée(s) au total. Windy Android utilise XHR — le patch fetch ne suffit pas.`
+                `Hook installé${stats.chainedPrevious ? ' (transformRequest existant chaîné)' : ''}.`
             ));
-        } else if (delta === 0) {
             checks.push(check(
-                'XHR interception', 'XMLHttpRequest citytile',
+                'transformRequest probe', 'citytile via transformRequest',
+                stats.citytileSeen > 0 ? 'pass' : 'warn',
+                stats.citytileSeen > 0
+                    ? `${stats.citytileSeen} citytile vu(s) via le pipeline GL — interception transformRequest+addProtocol viable. Ex: ${stats.firstCitytileUrl}`
+                    : `Aucun citytile via transformRequest (${stats.totalSeen} URLs vues). Soit citytile passe hors pipeline GL, soit navigue avec un calque actif puis Relancer.`
+            ));
+            checks.push(check(
+                'transformRequest probe', 'URLs par ResourceType',
+                'pass',
+                JSON.stringify(stats.byResourceType)
+            ));
+        } else {
+            checks.push(check(
+                'transformRequest probe', 'setTransformRequest',
                 'warn',
-                `Aucune requête XHR citytile détectée (total=${countAfter}, delta=${delta}). Active un calque (vent…) et navigue, puis Relancer.`
+                'Indisponible — pipeline GL non hookable (carte absente ou API non exposée).'
             ));
         }
     } catch (e) {
-        checks.push(check(
-            'XHR interception', 'Accès compteur',
-            'fail',
-            `Erreur: ${e}`
-        ));
+        checks.push(check('Transport actif (fetch vs XHR)', 'Échantillonnage', 'fail', `Erreur: ${e}`));
+    } finally {
+        // Restaurer impérativement le transformRequest de Windy, même en cas d'erreur.
+        if (probeMap) {
+            try {
+                const probe = await import('./transformProbe');
+                probe.uninstallTransformProbe(probeMap);
+            } catch { /* ignore */ }
+        }
     }
 
     // ── Résumé ───────────────────────────────────────────────────
