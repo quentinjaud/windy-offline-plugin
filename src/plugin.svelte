@@ -64,6 +64,7 @@
 
     import config from './pluginConfig';
     import { install, uninstall } from './lib/cacheProxy';
+    import { installTransformInterception, uninstallTransformInterception } from './lib/transformProbe';
     import { getActivePackId, setActivePackId } from './lib/packState';
     import { getAllPacks, deletePack as deletePackFromDB, getCacheSize as getTotalCacheSize, putPack } from './lib/storage';
     import type { Pack } from './lib/storage';
@@ -301,11 +302,15 @@
             if (!mapAvailable) {
                 console.warn('[Windy Offline] map indisponible après initialisation');
             }
+            // Interception via le pipeline GL — no-op tant que le flag est désactivé
+            // (cas par défaut). Câblée ici pour être prête à valider sur device.
+            installTransformInterception(map);
         });
     });
 
     onDestroy(() => {
         uninstall();
+        uninstallTransformInterception(map);
         if (rectLayer && map) map.removeLayer(rectLayer);
     });
 </script>
